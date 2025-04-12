@@ -1,6 +1,6 @@
 # Attempting to improve the [TUnA](https://github.com/Wang-lab-UCSD/TUnA) model
 
-[TUnA](https://github.com/Wang-lab-UCSD/TUnA/tree/8cd8b079cae26ae6f431adaf9dcae591ba401d1a) is an interesting project that combines common sense deep learning practices with some seriously innovative combinations of techniques. The result is really high quality training schemes for PPI. Most models struggle to learn anything from [Bernett's dataset](https://huggingface.co/datasets/Synthyra/bernett_gold_ppi) without EXTENSIVE hyperparameter tuning, but ESM variants, TUnA arcitecture, and even GPs on top seem to stabily learn it to SOTA levels. Some of the nice tricks include
+[TUnA](https://github.com/Wang-lab-UCSD/TUnA/tree/8cd8b079cae26ae6f431adaf9dcae591ba401d1a) is an interesting project that combines common sense deep learning wisdom with some seriously innovative combinations of techniques. The result is really high quality training schemes for PPI. Most models struggle to learn anything from [Bernett's dataset](https://huggingface.co/datasets/Synthyra/bernett_gold_ppi) without EXTENSIVE hyperparameter tuning, but ESM variants, TUnA arcitecture, and even GPs on top seem to stabily learn it to SOTA levels. Some of the nice tricks include
 - The RFFlayer for uncertainty
 - Look ahead optimization wrapper
 - Random starting length sampling for sequences longer than the alloted max length
