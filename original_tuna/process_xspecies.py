@@ -27,7 +27,7 @@ for species in DATASETS:
 
 """Second, embed the processed x-species data with ESM-2"""
 """Please change the cuda device to the device that you are using"""
-device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model, alphabet = load_model_and_alphabet(device)
 datasets = ['human_train_dictionary','human_test_dictionary','mouse_test_dictionary','fly_test_dictionary','worm_test_dictionary','yeast_test_dictionary','ecoli_test_dictionary']
 for dataset in datasets:
