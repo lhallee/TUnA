@@ -1,48 +1,27 @@
-# TUnA: Transformer-based Uncertainty Aware model for PPI Prediction
-![architecture](model_architecture.png)
+# Attempting to improve the [TUnA](https://github.com/Wang-lab-UCSD/TUnA) model
 
+[TUnA](https://github.com/Wang-lab-UCSD/TUnA/tree/8cd8b079cae26ae6f431adaf9dcae591ba401d1a) is an interesting project that combines common sense deep learning practices with some seriously innovative combinations of techniques. The result is really high quality training schemes for PPI. Most models struggle to learn anything from [Bernett's dataset](https://huggingface.co/datasets/Synthyra/bernett_gold_ppi) without EXTENSIVE hyperparameter tuning, but ESM variants, TUnA arcitecture, and even GPs on top seem to stabily learn it to SOTA levels. Some of the nice tricks include
+- The RFFlayer for uncertainty
+- Look ahead optimization wrapper
+- Random starting length sampling for sequences longer than the alloted max length
 
-## Introduction
-This repository contains the data and code required to reproduce results or run TUnA.
+There seems to be some low hanging fruit in terms of improvements, but who knows how it will go
+- [Synthyra](https://huggingface.co/Synthyra) base models for easier embedding, faster throughput, and enhanced information density
+- Flash attention for the encoders for better thoughput
+- I'm skeptical that spectral_norm is necessary but we'll see
+- Cross attention in both directions may save on cost with O(AB) instead of O((A+B)^2)
+- Longer max sequence lengths and consistent starting positions may help or hinder
+- I'm going to be trying some compression schemes to see if we really need full-residue information
+- token-parameter cross attention is almost always better than max pooling
 
-## Installation
-```console
-$ git clone https://github.com/Wang-lab-UCSD/TUnA
-$ cd TUnA
-$ conda env create --file environment.yml
-$ conda activate tuna
+## To replicate the original TUnA
 ```
-NOTE: The torch packages in environment.yml may need to be edited depending on which CUDA you are using: https://pytorch.org/get-started/previous-versions/ 
-
-## Usage
-### Data processing
-The embedding step may take some time.
-#### Cross-species Dataset
-```console
-$ python3 process_xspecies.py 
-```
-#### Bernett Dataset
-```console
-$ python3 process_bernett.py 
-```
-NOTE:The embedded Bernett data can be downloaded here: https://huggingface.co/yk0/TUnA_embeddings/tree/main. Please place the three folders in the data/embedded/bernett/ directory.
-___
-### Training and evaluation
-
-#### To train from scratch, head to results/ and choose the dataset/model you wish to train. Then, run:
-```console
-$ python3 main.py 
-```
-Hyperparameters and other options can be controlled using the config.yaml file. Please make sure the directories to the train/val/test dictionary and interaction files are correct. Every epoch, the performance on the validation set will be logged in output/results.txt
-
-NOTE: You need to specify your cuda device in config.yaml. Please edit the config file so that you are using the cuda device available in your setup.
-
-#### Using pre-trained models:
-First, download the pretrained models you wish from: [https://huggingface.co/datasets/yk0/TUnA_data/tree/main](https://huggingface.co/datasets/yk0/TUnA_models).
-Then, place the model file in the results/dataset/model/output directory. For example: place the bernett-TUnA model in the results/bernett/TUnA/output
-
-Then to evaluate either the re-trained or pre-trained models on the test sets:
-```console
-$ cd results/bernett/TUnA # navigate to the model you wish to use. The pretrained model needs to be placed in output/
-$ python3 inference.py 
+git clone https://github.com/lhallee/TUnA.git
+chmod +x setup_bioenv.sh
+./setup_bioenv.sh
+source ~/bioenv/bin/activate
+cd original_tuna
+python -m process_bernett
+cd results/bernett/TUnA
+python -m main
 ```
