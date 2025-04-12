@@ -1,5 +1,4 @@
 *.out
-*.sh
 *.pyc
 *.pt
 model

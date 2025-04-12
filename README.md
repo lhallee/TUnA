@@ -17,6 +17,7 @@ There seems to be some low hanging fruit in terms of improvements, but who knows
 ## To replicate the original TUnA
 ```
 git clone https://github.com/lhallee/TUnA.git
+cd TUnA
 chmod +x setup_bioenv.sh
 ./setup_bioenv.sh
 source ~/bioenv/bin/activate
