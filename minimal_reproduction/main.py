@@ -42,7 +42,9 @@ def main():
         model_config['ff_dim'],
         model_config['dropout'],
         model_config['activation_function'],
-        device)
+        device
+    )
+    
     inter_encoder = InterEncoder(
         model_config['protein_embedding_dim'],
         model_config['hid_dim'],
@@ -53,6 +55,7 @@ def main():
         model_config['activation_function'],
         device
     )
+
     gp_layer = VanillaRFFLayer(
         in_features=model_config['hid_dim'],
         RFFs=model_config['gp_layer']['rffs'],
@@ -62,6 +65,7 @@ def main():
         likelihood=model_config['gp_layer']['likelihood_function'],
         random_seed=config['other']['random_seed']
     )
+
     model = ProteinInteractionNet(intra_encoder, inter_encoder, gp_layer, device).to(device)
     summary(model)
     

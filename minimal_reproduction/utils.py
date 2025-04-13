@@ -6,9 +6,10 @@ import yaml
 import pandas as pd
 import numpy as np
 import timeit
+from transformers import AutoModel
 from sklearn.metrics import precision_score
 from torch.utils.data import DataLoader
-from data import ProteinInteractionDataset, list_collate
+from data import PPIDataset, list_collate
 from metrics import calculate_metrics, log_and_save_metrics
 from plots import plot
 
@@ -43,14 +44,14 @@ def load_configuration(config_file):
 
 # ------------------- Model Training and Testing -------------------
 # Train the model for one epoch
-def train_epoch(dictionary, action_file, subset, trainer, config, device, last_epoch):
+def train_epoch(dataset, emb_dict, trainer, config, device, last_epoch):
     total_loss = 0
     total_samples = 0
     batch_size = config['training']['batch_size']
     max_seq_length = config['model']['max_sequence_length']
     protein_dim = config['model']['protein_embedding_dim']    
     
-    dataset = ProteinInteractionDataset(dictionary, action_file, subset)
+    dataset = PPIDataset(dataset, emb_dict)
     total_samples += len(dataset)
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=list_collate)
     
@@ -101,6 +102,8 @@ def test_epoch(dictionary, action_file, subset, tester, config, last_epoch):
 # Train and validate the model across multiple epochs
 def train_and_validate_model(config, trainer, tester, scheduler, model, device):
     max_AUC_dev = 0
+
+
     train_dictionary = load_dictionary(config['directories']['train_dictionary'])
     test_dictionary = load_dictionary(config['directories']['validation_dictionary'])
 
@@ -128,7 +131,6 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
             log_and_save_metrics(epoch, time, total_loss_train, total_train_size, total_loss_test, total_test_size, AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc, max_AUC_dev)
             scheduler.step()
             plot(config['directories']['metrics_output'])
-
         
         if epoch == (config['training']['iteration']):
             total_loss_train, total_train_size = train_epoch(train_dictionary, train_interactions, subset, trainer, config, device, last_epoch=True)

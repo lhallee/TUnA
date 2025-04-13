@@ -1,14 +1,16 @@
 import random
 import torch
+from tqdm.auto import tqdm
+from datasets import load_dataset, Dataset
+from transformers import AutoModel
 from torch.utils.data import Dataset as TorchDataset
 
 
-
 class PPIDataset(TorchDataset):
-    def __init__(self, seqs_a, seqs_b, labels, emb_dict):
-        self.seqs_a = seqs_a
-        self.seqs_b = seqs_b
-        self.labels = labels
+    def __init__(self, dataset: Dataset, emb_dict: dict):
+        self.seqs_a = dataset['SeqA']
+        self.seqs_b = dataset['SeqB']
+        self.labels = dataset['labels']
         self.emb_dict = emb_dict
 
     def __len__(self):
@@ -95,3 +97,39 @@ def test_pack(protAs, protBs, labels, max_length, protein_dim, device):
         labels_new[i] = label
 
     return (protAs_new, protBs_new, labels_new, protA_lens, protB_lens, batch_protA_max_length, batch_protB_max_length)
+
+
+def get_data(config, device):
+    # Get uniprot id:protein embedding dictionary via torch.load
+    max_length = config['model']['max_sequence_length']
+    batch_size = config['training']['batch_size']
+    data = load_dataset('Synthyra/bernett_gold_ppi')
+    train_data = data['train'].filter(lambda x: len(x['SeqA']) <= max_length and len(x['SeqB']) <= max_length)
+    valid_data = data['validation'].filter(lambda x: len(x['SeqA']) <= max_length and len(x['SeqB']) <= max_length)
+    test_data = data['test']
+
+    all_seqs = list(set(
+        train_data['SeqA'] + train_data['SeqB'] + valid_data['SeqA'] + valid_data['SeqB'] + test_data['SeqA'] + test_data['SeqB']
+    ))
+
+    esm150 = AutoModel.from_pretrained('Synthyra/ESM2-150M', trust_remote_code=True).to(device).eval()
+    # this is a dict of seq:embedding
+    embedding_dict = esm150.embed_dataset(
+        sequences=all_seqs,
+        tokenizer=esm150.tokenizer,
+        batch_size=batch_size,
+        max_len=100000, # prevent truncation
+        full_embeddings=True,
+        embed_dtype=torch.float32,
+        num_workers=0,
+        sql=False,
+        sql_db_path='embeddings.db',
+        save=True,
+        save_path='embeddings.pth',
+    )
+    
+    esm150.cpu()
+    del esm150
+    torch.cuda.empty_cache()
+
+    return embedding_dict, train_data, valid_data, test_data
