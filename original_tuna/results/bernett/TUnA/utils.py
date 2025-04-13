@@ -26,6 +26,7 @@ def set_random_seed(seed):
     np.random.seed(seed)
     torch.backends.cudnn.deterministic = True
 
+
 # Load configuration settings from a YAML file
 def load_configuration(config_file):
     with open(config_file, 'r') as config_file:
