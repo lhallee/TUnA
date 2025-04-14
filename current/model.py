@@ -56,9 +56,6 @@ class SelfAttention(nn.Module):
             dropout_p=self.dropout_rate,
             is_causal=False
         )
-
-        a = rearrange(a, "b h L d -> b L (h d)")
-        a = self.fc(a)
         a = rearrange(a, "b h s d -> b s (h d)") # (bs, seq_len, n_heads * d_head)
         return self.out_proj(a) # (bs, seq_len, hidden_size)
 

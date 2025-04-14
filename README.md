@@ -34,7 +34,7 @@ python -m main
 ## To run the current version
 ```
 cd current
-py -m main
+python -m main
 ```
 
 ### Change log
