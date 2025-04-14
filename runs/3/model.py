@@ -182,12 +182,8 @@ class ProteinInteractionNet(nn.Module):
         return combined_mask
 
     def mean_field_average(self, logits, variance):
-        print(f'logits.shape: {logits.shape}')
-        print(f'variance.shape: {variance.shape}')
         adjusted_score = logits / torch.sqrt(1. + (np.pi /8.)*variance)
-        print(f'adjusted_score.shape: {adjusted_score.shape}')
         adjusted_score = torch.sigmoid(adjusted_score).squeeze()
-        print(f'adjusted_score.shape: {adjusted_score.shape}')
         return adjusted_score
 
     def forward(self, protAs, protBs, protA_lens, protB_lens, batch_protA_max_length, batch_protB_max_length, last_epoch, train):
@@ -251,7 +247,6 @@ class ProteinInteractionNet(nn.Module):
         elif last_epoch==True and train==False:
             logit, var = self.forward(protAs, protBs, protA_lens, protB_lens, batch_protA_max_length, batch_protB_max_length, last_epoch, train=False)
             adjusted_score = self.mean_field_average(logit.squeeze(1), var)
-            print(f'correct_interactions.shape: {correct_interactions.shape}')
             loss = self.bce_loss(adjusted_score, correct_interactions.float().squeeze())
             correct_labels = correct_interactions.cpu().data.numpy()
             return loss, correct_labels, adjusted_score

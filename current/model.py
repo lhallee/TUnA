@@ -113,25 +113,6 @@ class ProteinInteractionNet(nn.Module):
         self.gp_layer = gp_layer
         self.bce_loss = nn.BCELoss()
 
-    def make_masks(self, prot_lens, protein_max_len):
-        N = len(prot_lens)  # batch size
-        mask = torch.zeros((N, protein_max_len, protein_max_len), device=self.device)
-
-        for i, lens in enumerate(prot_lens):
-            # Create a square mask for the non-padded sequences
-            mask[i, :lens, :lens] = 1
-
-        # Expand the mask to 4D: [batch, 1, max_len, max_len]
-        mask = mask.unsqueeze(1)
-        return mask
-
-    def combine_masks(self, maskA, maskB):
-        lenA, lenB = maskA.size(2), maskB.size(2)
-        combined_mask = torch.zeros(maskA.size(0), 1, lenA + lenB, lenA + lenB, device=self.device)
-        combined_mask[:, :, :lenA, :lenA] = maskA
-        combined_mask[:, :, lenA:, lenA:] = maskB
-        return combined_mask
-
     def mean_field_average(self, logits, variance):
         adjusted_score = logits / torch.sqrt(1. + (np.pi /8.)*variance)
         adjusted_score = torch.sigmoid(adjusted_score).squeeze()
@@ -186,7 +167,7 @@ class ProteinInteractionNet(nn.Module):
         #This is the last test epoch. Generate variances.
         elif last_epoch==True and train==False:
             logit, var = self.gp_layer(ppi_feature_vector, update_precision=False, get_var=True)
-            adjusted_score = self.mean_field_average(logit, var)
+            adjusted_score = self.mean_field_average(logit.squeeze(1), var)
             loss = self.bce_loss(adjusted_score, labels.squeeze())
             correct_labels = labels.cpu().numpy()
             return loss, correct_labels, adjusted_score

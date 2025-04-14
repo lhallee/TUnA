@@ -64,14 +64,13 @@ def train_epoch(dataset, emb_dict, trainer, config, device, last_epoch):
 
 
 # Test the model for one epoch
-def test_epoch(dataset, emb_dict, tester, config, last_epoch):
+def test_epoch(dataset, emb_dict, tester, config, last_epoch, batch_size):
     
     T, Y, S = [], [], []
     total_loss = 0
     total_samples = 0
     max_seq_length = config['model']['max_sequence_length']
     protein_dim = config['model']['base_size']
-    batch_size = config['training']['batch_size']
     dataset = PPIDataset(dataset, emb_dict)
     total_samples += len(dataset)
     dev_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, collate_fn=list_collate)
@@ -103,13 +102,14 @@ def test_epoch(dataset, emb_dict, tester, config, last_epoch):
 def train_and_validate_model(config, trainer, tester, scheduler, model, device):
     max_AUC_dev = 0
 
+    batch_size = config['training']['batch_size']
     embedding_dict, train_data, valid_data, _ = get_data(config, device)
 
     start = timeit.default_timer()
     for epoch in range(1, config['training']['iteration'] + 1):
         if epoch != (config['training']['iteration']):
             total_loss_train, total_train_size = train_epoch(train_data, embedding_dict, trainer, config, device, last_epoch=False)
-            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, last_epoch=False)
+            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, last_epoch=False, batch_size=batch_size)
             
             end = timeit.default_timer()
             time = end - start
@@ -127,7 +127,7 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
         if epoch == (config['training']['iteration']):
             total_loss_train, total_train_size = train_epoch(train_data, embedding_dict, trainer, config, device, last_epoch=True)
             
-            T, Y, S, total_loss_test, total_test_size= test_epoch(valid_data, embedding_dict, tester, config, last_epoch=True)
+            T, Y, S, total_loss_test, total_test_size= test_epoch(valid_data, embedding_dict, tester, config, last_epoch=True, batch_size=batch_size)
             AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc = calculate_metrics(T,Y,S)
             
             end = timeit.default_timer()
@@ -137,19 +137,51 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
             save_model(model, "output/model")
 
 
-def evaluate(config, tester, device):
+def evaluate(config, tester, device, batch_size=1):
     embedding_dict, _, _, test_data = get_data(config, device)
 
-    T, Y, S, total_loss_test, total_test_size = test_epoch(test_data, embedding_dict, tester, config, last_epoch=True)
+    T, Y, S, total_loss_test, total_test_size = test_epoch(test_data, embedding_dict, tester, config, last_epoch=True, batch_size=batch_size)
     AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc = calculate_metrics(T, Y, S)
-    print(total_loss_test / total_test_size, AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc)
-
+    
+    # Print and write results to file
+    test_results = [
+        f'Test loss: {total_loss_test / total_test_size}',
+        f'Test AUC: {AUC_dev}',
+        f'Test PRC: {PRC_dev}',
+        f'Test accuracy: {accuracy}',
+        f'Test sensitivity: {sensitivity}',
+        f'Test specificity: {specificity}',
+        f'Test precision: {precision}',
+        f'Test F1: {f1}',
+        f'Test MCC: {mcc}'
+    ]
+    
+    # Print results
+    for result in test_results:
+        print(result)
+    
     # Calculate Expected Calibration Error
     ece = cal.get_ece(S, T)
-    print("Expected Calibration Error (ECE):", ece)
+    ece_result = f"Expected Calibration Error (ECE): {ece}"
+    print(ece_result)
+    test_results.append(ece_result)
     
     # Calculate uncertainty
     uncertainty = (1 - np.array(S)) * (np.array(S)) / 0.25
+
+    for cutoff in [0.2, 0.4, 0.6, 0.8]:
+        filtered_indices = uncertainty < cutoff
+        T_filtered = np.array(T)[filtered_indices]
+        Y_filtered = np.array(Y)[filtered_indices]
+        true_positives = sum((T_filtered == 1) & (Y_filtered == 1))
+        precision_filtered = precision_score(T_filtered, Y_filtered, zero_division=0)
+        cutoff_result = f"Uncertainty Cutoff {cutoff}: Precision - {precision_filtered}, True Positives - {true_positives}"
+        print(cutoff_result)
+        test_results.append(cutoff_result)
+    
+    # Append all results to output file
+    with open(config['directories']['metrics_output'], 'a') as f:
+        f.write('\n' + '\n'.join(test_results) + '\n')
 
     # test_data has columns A, B, SeqA, SeqB, labels
     test_interactions = test_data.to_pandas()
@@ -159,14 +191,6 @@ def evaluate(config, tester, device):
 
     # Saving to TSV
     test_interactions.to_csv('evaluation_results.tsv', sep='\t', index=False)
-
-    for cutoff in [0.2, 0.4, 0.6, 0.8]:
-        filtered_indices = uncertainty < cutoff
-        T_filtered = np.array(T)[filtered_indices]
-        Y_filtered = np.array(Y)[filtered_indices]
-        true_positives = sum((T_filtered == 1) & (Y_filtered == 1))
-        precision_filtered = precision_score(T_filtered, Y_filtered, zero_division=0)
-        print(f"Uncertainty Cutoff {cutoff}: Precision - {precision_filtered}, True Positives - {true_positives}")
 
 
 # Save model state to file
