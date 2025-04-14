@@ -25,14 +25,13 @@ class PPIDataset(TorchDataset):
     
 
 class PPICollator:
-    def __init__(self, max_length, base_size, device, test=True):
+    def __init__(self, max_length, base_size, test=True):
         self.max_length = max_length
         self.base_size = base_size
-        self.device = device
         self.test = test
 
     def make_masks(self, batch_size, lengths):
-        mask = torch.zeros((batch_size, self.max_length, self.max_length), device=self.device)
+        mask = torch.zeros((batch_size, self.max_length, self.max_length))
         for i, length in enumerate(lengths):
             # Create a square mask for the non-padded sequences
             mask[i, :length, :length] = 1
@@ -42,7 +41,7 @@ class PPICollator:
 
     def combine_masks(self, maskA, maskB):
         lenA, lenB = maskA.size(2), maskB.size(2)
-        combined_mask = torch.zeros(maskA.size(0), 1, lenA + lenB, lenA + lenB, device=self.device)
+        combined_mask = torch.zeros(maskA.size(0), 1, lenA + lenB, lenA + lenB)
         combined_mask[:, :, :lenA, :lenA] = maskA
         combined_mask[:, :, lenA:, lenA:] = maskB
         return combined_mask
@@ -60,8 +59,8 @@ class PPICollator:
         else:
             max_length = self.max_length
 
-        final_a_batch = torch.zeros((batch_size, max_length, self.base_size), device=self.device)
-        final_b_batch = torch.zeros((batch_size, max_length, self.base_size), device=self.device)
+        final_a_batch = torch.zeros((batch_size, max_length, self.base_size))
+        final_b_batch = torch.zeros((batch_size, max_length, self.base_size))
 
         for i, (a, b) in enumerate(zip(emb_a, emb_b)):
             a_len, b_len = len(a), len(b)
@@ -81,7 +80,7 @@ class PPICollator:
         b_mask = self.make_masks(batch_size, b_lengths)
         combined_mask_ab = self.combine_masks(a_mask, b_mask)
         combined_mask_ba = self.combine_masks(b_mask, a_mask)
-        labels = torch.tensor(labels, dtype=torch.float, device=self.device)
+        labels = torch.tensor(labels, dtype=torch.float)
         
         return {
             'x_a': final_a_batch,

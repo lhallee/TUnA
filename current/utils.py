@@ -54,7 +54,7 @@ def train_epoch(dataset, emb_dict, trainer, config, device, last_epoch):
     
     dataset = PPIDataset(dataset, emb_dict)
     total_samples += len(dataset)
-    data_collator = PPICollator(max_length=max_seq_length, base_size=base_size, device=device, test=False)
+    data_collator = PPICollator(max_length=max_seq_length, base_size=base_size, test=False)
     train_loader = DataLoader(
         dataset,
         batch_size=batch_size,
@@ -64,7 +64,7 @@ def train_epoch(dataset, emb_dict, trainer, config, device, last_epoch):
     )
     
     for batch in tqdm(train_loader, desc="Training", total=len(train_loader)):
-        # batch is alread on device
+        batch = {key: value.to(device) for key, value in batch.items()}
         batch_loss = trainer.train(batch, last_epoch)
         total_loss += batch_loss * len(batch['x_a'])
 
@@ -81,7 +81,7 @@ def test_epoch(dataset, emb_dict, tester, config, device, last_epoch):
     batch_size = config['training']['batch_size']
     dataset = PPIDataset(dataset, emb_dict)
     total_samples += len(dataset)
-    data_collator = PPICollator(max_length=max_seq_length, base_size=base_size, device=device, test=True)
+    data_collator = PPICollator(max_length=max_seq_length, base_size=base_size, test=True)
     dev_loader = DataLoader(
         dataset,
         batch_size=batch_size,
@@ -92,6 +92,7 @@ def test_epoch(dataset, emb_dict, tester, config, device, last_epoch):
 
     if last_epoch: 
         for batch in tqdm(dev_loader, desc="Testing", total=len(dev_loader)):
+            batch = {key: value.to(device) for key, value in batch.items()}
             batch_loss, t, y, s = tester.test(batch, last_epoch)
             T.extend(t)
             Y.extend(y)
@@ -102,6 +103,7 @@ def test_epoch(dataset, emb_dict, tester, config, device, last_epoch):
 
     else:
         for batch in tqdm(dev_loader, desc="Testing", total=len(dev_loader)):
+            batch = {key: value.to(device) for key, value in batch.items()}
             batch_loss, t, y, s = tester.test(batch, last_epoch)
             T.extend(t)
             Y.extend(y)
