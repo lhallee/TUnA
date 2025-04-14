@@ -237,7 +237,10 @@ class ProteinInteractionNet(nn.Module):
         #Test but not last epoch, we don't use variances still
         elif last_epoch==False and train==False:
             logit = self.forward(protAs, protBs, protA_lens, protB_lens, batch_protA_max_length, batch_protB_max_length, last_epoch, train=False)
+            print(f'logit.shape: {logit.shape}')
             mean = torch.sigmoid(logit.squeeze())
+            print(f'mean.shape: {mean.shape}')
+            print(f'correct_interactions.shape: {correct_interactions.shape}')
             loss = self.bce_loss(mean, correct_interactions.float().squeeze())
             correct_labels = correct_interactions.cpu().data.numpy()
             
@@ -246,7 +249,11 @@ class ProteinInteractionNet(nn.Module):
         #Test and last epoch
         elif last_epoch==True and train==False:
             logit, var = self.forward(protAs, protBs, protA_lens, protB_lens, batch_protA_max_length, batch_protB_max_length, last_epoch, train=False)
+            print(f'logit.shape: {logit.shape}')
+            print(f'var.shape: {var.shape}')
             adjusted_score = self.mean_field_average(logit, var)
+            print(f'adjusted_score.shape: {adjusted_score.shape}')
+            print(f'correct_interactions.shape: {correct_interactions.shape}')
             loss = self.bce_loss(adjusted_score, correct_interactions.float().squeeze())
             correct_labels = correct_interactions.cpu().data.numpy()
             return loss, correct_labels, adjusted_score
