@@ -70,6 +70,7 @@ class SelfAttention(nn.Module):
             q, k = self._apply_rotary(q, k)
 
         q, k, v = map(self.reshaper, (q, k, v))
+        print(q.shape, k.shape, v.shape, attention_mask.shape)
         a = F.scaled_dot_product_attention(
             q, k, v,
             attn_mask=attention_mask,

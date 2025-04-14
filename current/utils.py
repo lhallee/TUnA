@@ -122,6 +122,7 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
     start = timeit.default_timer()
     for epoch in range(1, config['training']['iteration'] + 1):
         if epoch != (config['training']['iteration']):
+            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, device, last_epoch=False)
             total_loss_train, total_train_size = train_epoch(train_data, embedding_dict, trainer, config, device, last_epoch=False)
             T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, device, last_epoch=False)
             
