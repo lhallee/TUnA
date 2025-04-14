@@ -36,3 +36,9 @@ python -m main
 cd minimal_reproduction
 py -m main
 ```
+
+### Change log
+| Change | Time | Val AUC | Link |
+|------|--------|-------------|--------|
+| Base TUnA | 7184s | 0.6604 | [logs](logs/base_tuna_4_12_25.txt) |
+| Switch to Synthyra ESM2-150 and data| 2271s | 0.6754 | [logs](logs/switch_to_synthyra_4_13_25.txt) |
