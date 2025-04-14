@@ -92,12 +92,7 @@ class InterEncoder(nn.Module):
         for layer in self.layer:
             combined = layer(combined, combined_mask)
 
-        print(f'combined.shape: {combined.shape}')
-
-        combined_mask_2d = combined_mask[:,0,:,0]
-        label = torch.sum(combined*combined_mask_2d[:,:,None], dim=1)/combined_mask_2d.sum(dim=1, keepdims=True)
-        
-        return label 
+        return combined
 
 
 class ProteinInteractionNet(nn.Module):
@@ -105,12 +100,14 @@ class ProteinInteractionNet(nn.Module):
         super().__init__()
         self.intra_encoder = intra_encoder
         self.inter_encoder = inter_encoder
+        hidden_size = self.inter_encoder.hidden_size
         self.pooler = AttentionPooler(
-            hidden_size=self.inter_encoder.hidden_size,
+            hidden_size=hidden_size,
             n_tokens=1,
             n_heads=self.inter_encoder.n_heads,
             use_spectral_norm=True
         )
+        self.final_proj = spectral_norm(Linear(hidden_size * 2, hidden_size))
         self.device = device
         self.gp_layer = gp_layer
         self.bce_loss = nn.BCELoss()
@@ -136,12 +133,14 @@ class ProteinInteractionNet(nn.Module):
         x_a = self.intra_encoder(x_a, a_mask)
         x_b = self.intra_encoder(x_b, b_mask)
 
-        x_ab = self.inter_encoder(x_a, x_b, combined_mask_ab) # (b, 64)
-        x_ba = self.inter_encoder(x_b, x_a, combined_mask_ba) # (b, 64)
-        print(f'x_ab.shape: {x_ab.shape}, x_ba.shape: {x_ba.shape}')
-        ppi_feature_vector = torch.cat([x_ab, x_ba], dim=-1) # (b, A+B, d)
-        ppi_feature_vector = self.pooler(ppi_feature_vector).squeeze(1) # (b, d)
-        
+        x_ab = self.inter_encoder(x_a, x_b, combined_mask_ab) # (b, A+B, d)
+        x_ba = self.inter_encoder(x_b, x_a, combined_mask_ba) # (b, A+B, d)
+
+        x_ab = self.pooler(x_ab).squeeze(1) # (b, d)
+        x_ba = self.pooler(x_ba).squeeze(1) # (b, d)
+        ppi_feature_vector = torch.cat([x_ab, x_ba], dim=-1) # (b, 2d)
+        ppi_feature_vector = self.final_proj(ppi_feature_vector) # (b, d)
+
         ### TRAINING ###
         # IF its not the last epoch, we don't need to update the precision
         if last_epoch==False and train==True:
