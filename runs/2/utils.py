@@ -48,7 +48,7 @@ def train_epoch(dataset, emb_dict, trainer, config, device, last_epoch):
     total_samples = 0
     batch_size = config['training']['batch_size']
     max_seq_length = config['model']['max_sequence_length']
-    protein_dim = config['model']['base_size']    
+    protein_dim = config['model']['protein_embedding_dim']    
     
     dataset = PPIDataset(dataset, emb_dict)
     total_samples += len(dataset)
@@ -70,7 +70,7 @@ def test_epoch(dataset, emb_dict, tester, config, last_epoch):
     total_loss = 0
     total_samples = 0
     max_seq_length = config['model']['max_sequence_length']
-    protein_dim = config['model']['base_size'] 
+    protein_dim = config['model']['protein_embedding_dim'] 
     dataset = PPIDataset(dataset, emb_dict)
     total_samples += len(dataset)
     dev_loader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=list_collate)

@@ -14,20 +14,19 @@ from rotary import RotaryEmbedding
 
 
 class SelfAttention(nn.Module):
-    def __init__(self, hidden_size, n_heads, dropout, rotary=True):
+    def __init__(self, hid_dim, n_heads, dropout, rotary=False):
         super().__init__()
-        self.hidden_size = hidden_size
+        self.hid_dim = hid_dim
         self.n_heads = n_heads
-        self.d_head = hidden_size // n_heads
-        assert hidden_size % n_heads == 0, "hidden_size must be divisible by n_heads"
+        assert hid_dim % n_heads == 0, "hid_dim must be divisible by n_heads"
 
-        self.w_q = spectral_norm(nn.Linear(hidden_size, hidden_size))
-        self.w_k = spectral_norm(nn.Linear(hidden_size, hidden_size))
-        self.w_v = spectral_norm(nn.Linear(hidden_size, hidden_size))
-        self.out_proj = spectral_norm(nn.Linear(hidden_size, hidden_size))
+        self.w_q = spectral_norm(nn.Linear(hid_dim, hid_dim))
+        self.w_k = spectral_norm(nn.Linear(hid_dim, hid_dim))
+        self.w_v = spectral_norm(nn.Linear(hid_dim, hid_dim))
+        self.out_proj = spectral_norm(nn.Linear(hid_dim, hid_dim))
 
         self.dropout_rate = dropout
-        self.rotary = RotaryEmbedding(hidden_size // n_heads) if rotary else None
+        self.rotary = RotaryEmbedding(hid_dim // n_heads) if rotary else None
         self.reshaper = partial(rearrange, pattern="b s (h d) -> b h s d", h=n_heads)
 
     def _apply_rotary(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -40,15 +39,8 @@ class SelfAttention(nn.Module):
 
     def forward(self, x: torch.Tensor, attention_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         b, L, _ = x.shape
-        if attention_mask is not None:
-            if attention_mask.dim() == 2:
-                attention_mask = attention_mask[:, None, None, :].expand(b, 1, L, L).bool()
-            elif attention_mask.dim() == 3:
-                attention_mask = attention_mask.unsqueeze(1).bool()
-            elif attention_mask.dim() == 4:
-                attention_mask = attention_mask.bool()
-            else:
-                raise ValueError(f"Invalid attention mask dimension: {attention_mask.dim()}")
+        if attention_mask is not None and attention_mask.dim() == 2:
+            attention_mask = attention_mask[:, None, None, :].expand(b, 1, L, L).bool()
 
         q = self.w_q(x)
         k = self.w_k(x)
@@ -69,86 +61,109 @@ class SelfAttention(nn.Module):
 
 
 class Feedforward(nn.Module):
-    def __init__(self, hidden_size, intermediate_size, dropout, activation_fn):
+    def __init__(self, hid_dim, ff_dim, dropout, activation_fn):
         super().__init__()
 
-        self.hidden_size = hidden_size
-        self.intermediate_size = intermediate_size
+        self.hid_dim = hid_dim
+        self.ff_dim = ff_dim
 
-        # SwiGLU implementation requires two projection matrices
-        self.w1 = spectral_norm(nn.Linear(hidden_size, intermediate_size))
-        self.w2 = spectral_norm(nn.Linear(hidden_size, intermediate_size))
-        self.down = spectral_norm(nn.Linear(intermediate_size, hidden_size))
+        self.fc_1 = spectral_norm(nn.Linear(hid_dim, ff_dim))  
+        self.fc_2 = spectral_norm(nn.Linear(ff_dim, hid_dim))  
 
-        self.dropout = nn.Dropout(dropout)
-        self.act = nn.SiLU()
+        self.do = nn.Dropout(dropout)
+        self.activation = self._get_activation_fn(activation_fn)
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # SwiGLU: output = (x * SiLU(W1x)) @ W3
-        gate = self.act(self.w1(x))
-        value = self.w2(x)
-        x = gate * value
-        x = self.dropout(x)
-        return self.down(x)
+    def _get_activation_fn(self, activation_fn):
+        """Return the corresponding activation function."""
+        if activation_fn == "relu":
+            return nn.ReLU()
+        elif activation_fn == "gelu":
+            return nn.GELU()
+        elif activation_fn == "elu":
+            return nn.ELU()
+        elif activation_fn == "swish":
+            return nn.SiLU()
+        elif activation_fn == "leaky_relu":
+            return nn.LeakyReLU()
+        elif activation_fn == "mish":
+            return nn.Mish()
+        # Add other activation functions if needed
+        else:
+            raise ValueError(f"Activation function {activation_fn} not supported.")
+    
+    def forward(self, x):
+        # x = [batch size, sent len, hid dim]
+
+        x = self.do(self.activation(self.fc_1(x)))
+        # x = [batch size, ff dim, sent len]
+
+        x = self.fc_2(x)
+        # x = [batch size, hid dim, sent len]
+        return x
 
 
 class EncoderLayer(nn.Module):
-    def __init__(self, hidden_size, n_heads, intermediate_size, dropout, activation_fn):
+    def __init__(self, hid_dim, n_heads, ff_dim, dropout, activation_fn, device):
         super().__init__()
-        self.ln1 = nn.LayerNorm(hidden_size)
-        self.ln2 = nn.LayerNorm(hidden_size)
+        self.ln1 = nn.LayerNorm(hid_dim)
+        self.ln2 = nn.LayerNorm(hid_dim)
         
-        self.dropout = nn.Dropout(dropout)
+        self.do1 = nn.Dropout(dropout)
+        self.do2 = nn.Dropout(dropout)
         
-        self.attn = SelfAttention(hidden_size, n_heads, dropout)
-        self.mlp = Feedforward(hidden_size, intermediate_size, dropout, activation_fn)
+        self.sa = SelfAttention(hid_dim, n_heads, dropout)
+        self.ff = Feedforward(hid_dim, ff_dim, dropout, activation_fn)
         
-    def forward(self, x: torch.Tensor, attention_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
-        x = self.ln1(x + self.dropout(self.attn(x, attention_mask)))
-        x = self.ln2(x + self.dropout(self.mlp(x)))
-        return x
+    def forward(self, trg, mask=None):
+        trg = self.ln1(trg + self.do1(self.sa(trg, mask)))
+        trg = self.ln2(trg + self.do2(self.ff(trg)))
+        return trg
 
 
 class IntraEncoder(nn.Module):
-    def __init__(self, prot_dim, hidden_size, n_layers, n_heads, intermediate_size, dropout, activation_fn):
+    def __init__(self, prot_dim, hid_dim, n_layers, n_heads, ff_dim, dropout, activation_fn, device):
         super().__init__()   
-        self.input_proj = spectral_norm(nn.Linear(prot_dim, hidden_size))
+        self.ft = spectral_norm(nn.Linear(prot_dim, hid_dim))
         self.n_layers = n_layers
         self.layer = nn.ModuleList()
         for _ in range(n_layers):
-            self.layer.append(EncoderLayer(hidden_size, n_heads, intermediate_size, dropout, activation_fn))
+            self.layer.append(EncoderLayer(hid_dim, n_heads, ff_dim, dropout, activation_fn, device))
         
-    def forward(self, x: torch.Tensor, attention_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
-        # x = [batch_size, max_seq_len, protA_dim]
-        x = self.input_proj(x)
-        # x = [batch size, protA len, hid dim]
+    def forward(self, trg, trg_mask=None):
+        # trg = [batch_size, max_seq_len, protA_dim]
+        
+        trg = self.ft(trg)
+        # trg = [batch size, protA len, hid dim]
+
         for layer in self.layer:
-            x = layer(x, attention_mask)
-        return x
+            trg = layer(trg, trg_mask)
+        return trg
 
 
 class InterEncoder(nn.Module):
-    def __init__(self, prot_dim, hidden_size, n_layers, n_heads, intermediate_size, dropout, activation_fn):
+    """ protein feature extraction."""
+    def __init__(self, prot_dim, hid_dim, n_layers, n_heads, ff_dim, dropout, activation_fn, device):
         super().__init__()
         self.output_dim = prot_dim
-        self.hidden_size = hidden_size
+        self.hid_dim = hid_dim
         self.n_layers = n_layers
         self.n_heads = n_heads
-        self.intermediate_size = intermediate_size
+        self.ff_dim = ff_dim
         self.dropout = dropout
+        self.device = device
         self.layer = nn.ModuleList()
         for _ in range(n_layers):
-            self.layer.append(EncoderLayer(hidden_size, n_heads, intermediate_size, dropout, activation_fn))
+            self.layer.append(EncoderLayer(hid_dim, n_heads, ff_dim, dropout, activation_fn, device))
 
-    def forward(self, enc_protA: torch.Tensor, enc_protB: torch.Tensor, combined_mask: torch.Tensor) -> torch.Tensor:
+    def forward(self, enc_protA, enc_protB, combined_mask):
         # Concatenate the encoded representations and masks
-        combined = torch.cat([enc_protA, enc_protB], dim=1)
+        combined_trg_src = torch.cat([enc_protA, enc_protB], dim=1)
 
         for layer in self.layer:
-            combined = layer(combined, combined_mask)
+            combined_trg_src = layer(combined_trg_src, combined_mask)
 
         combined_mask_2d = combined_mask[:,0,:,0]
-        label = torch.sum(combined*combined_mask_2d[:,:,None], dim=1)/combined_mask_2d.sum(dim=1, keepdims=True)
+        label = torch.sum(combined_trg_src*combined_mask_2d[:,:,None], dim=1)/combined_mask_2d.sum(dim=1, keepdims=True)
         
         return label 
 
@@ -156,6 +171,7 @@ class InterEncoder(nn.Module):
 class ProteinInteractionNet(nn.Module):
     def __init__(self, intra_encoder, inter_encoder, gp_layer, device):
         super().__init__()
+
         self.intra_encoder = intra_encoder
         self.inter_encoder = inter_encoder
         self.device = device
@@ -184,6 +200,7 @@ class ProteinInteractionNet(nn.Module):
     def mean_field_average(self, logits, variance):
         adjusted_score = logits / torch.sqrt(1. + (np.pi /8.)*variance)
         adjusted_score = torch.sigmoid(adjusted_score).squeeze()
+
         return adjusted_score
 
     def forward(self, protAs, protBs, protA_lens, protB_lens, batch_protA_max_length, batch_protB_max_length, last_epoch, train):
@@ -200,7 +217,7 @@ class ProteinInteractionNet(nn.Module):
         AB_interaction = self.inter_encoder(enc_protA, enc_protB, combined_mask_AB)
         BA_interaction = self.inter_encoder(enc_protB, enc_protA, combined_mask_BA)
         
-        #[batch, hidden_size*2]
+        #[batch, 64] 
         ppi_feature_vector, _ = torch.max(torch.stack([AB_interaction, BA_interaction], dim=-1), dim=-1)
         
         ### TRAINING ###
@@ -249,6 +266,7 @@ class ProteinInteractionNet(nn.Module):
             adjusted_score = self.mean_field_average(logit, var)
             loss = self.bce_loss(adjusted_score, correct_interactions.float().squeeze())
             correct_labels = correct_interactions.cpu().data.numpy()
+            
             return loss, correct_labels, adjusted_score
 
 
@@ -289,9 +307,11 @@ class Trainer(object):
         
         protAs, protBs, labels = zip(*dataset)
         data_pack = pack(protAs, protBs, labels, max_length, protein_dim, device)
+        
         loss = self.model(data_pack, last_epoch, train=True)
         loss.backward()
         self.optimizer.step()
+        
         return loss.item() * len(protAs)
     
 
@@ -302,10 +322,11 @@ class Tester(object):
     def test(self, dataset, max_length, protein_dim, last_epoch):
         """ Test the model on the provided dataset. """
         self.model.eval()
+
         with torch.no_grad():
             protAs, protBs, labels = zip(*dataset)
             data_pack = test_pack(protAs, protBs, labels, max_length, protein_dim, device=self.model.device)
-
+            
             loss, correct_labels, adjusted_score = self.model(data_pack, last_epoch, train=False)
             T = correct_labels
             Y = np.round(adjusted_score.flatten().cpu().numpy())

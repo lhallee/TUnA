@@ -37,29 +37,29 @@ def main():
     # --- Model Initialization ---
     # Initialize the Encoder, Decoder, and overall model
     intra_encoder = IntraEncoder(
-        model_config['base_size'],
-        model_config['hidden_size'],
+        model_config['protein_embedding_dim'],
+        model_config['hid_dim'],
         model_config['n_layers'],
         model_config['n_heads'],
-        model_config['intermediate_size'],
+        model_config['ff_dim'],
         model_config['dropout'],
         model_config['activation_function'],
         device
     )
     
     inter_encoder = InterEncoder(
-        model_config['base_size'],
-        model_config['hidden_size'],
+        model_config['protein_embedding_dim'],
+        model_config['hid_dim'],
         model_config['n_layers'],
         model_config['n_heads'],
-        model_config['intermediate_size'],
+        model_config['ff_dim'],
         model_config['dropout'],
         model_config['activation_function'],
         device
     )
 
     gp_layer = VanillaRFFLayer(
-        in_features=model_config['hidden_size'],
+        in_features=model_config['hid_dim'],
         RFFs=model_config['gp_layer']['rffs'],
         out_targets=model_config['gp_layer']['out_targets'],
         gp_cov_momentum=model_config['gp_layer']['gp_cov_momentum'],
