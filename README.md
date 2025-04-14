@@ -44,4 +44,4 @@ python -m main
 | Synthyra version of ESM2-150, improved torch Dataset | 2271s / GH200 | 0.6754 | [log](runs/1/switch_to_synthyra_4_13_25.txt) |
 | Flash attn | 2139s / GH200 | 0.6613 | [log](runs/2/flash_attn_4_13_25.txt) |
 | Fixed mask, rotary, swiglu, hidden sizes 128, intermediate size 512, ESM2-650, batching during eval | / GH200 |  | [log](runs/2/flash_attn_4_13_25.txt) |
-| bias=False, attention pooling, data collator update|  |  | [log](runs/2/flash_attn_4_13_25.txt) |
+| bias=False, attention pooling, data collator update| / A5000 |  | [log](runs/2/flash_attn_4_13_25.txt) |

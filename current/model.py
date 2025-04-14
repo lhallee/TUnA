@@ -6,7 +6,6 @@ from torch.optim import Adam
 from typing import Optional
 from functools import partial
 from utils import *
-from data import pack, test_pack
 from optimizer import Lookahead
 from attention import SelfAttention, AttentionPooler
 
