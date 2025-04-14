@@ -253,7 +253,7 @@ class ProteinInteractionNet(nn.Module):
         #Test and last epoch
         elif last_epoch==True and train==False:
             logit, var = self.forward(protAs, protBs, protA_lens, protB_lens, batch_protA_max_length, batch_protB_max_length, last_epoch, train=False)
-            adjusted_score = self.mean_field_average(logit, var)
+            adjusted_score = self.mean_field_average(logit.squeeze(1), var)
             print(f'correct_interactions.shape: {correct_interactions.shape}')
             loss = self.bce_loss(adjusted_score, correct_interactions.float().squeeze())
             correct_labels = correct_interactions.cpu().data.numpy()
