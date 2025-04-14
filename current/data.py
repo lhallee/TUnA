@@ -1,6 +1,5 @@
 import random
 import torch
-from tqdm.auto import tqdm
 from datasets import load_dataset, Dataset
 from transformers import AutoModel
 from torch.utils.data import Dataset as TorchDataset
@@ -25,78 +24,67 @@ class PPIDataset(TorchDataset):
         return emb_a, emb_b, label
     
 
-# Custom collate function for DataLoader
-def list_collate(batch):
-    proteinA_batch = [item[0] for item in batch]
-    proteinB_batch = [item[1] for item in batch]
-    y_batch = [item[2] for item in batch]
-    return proteinA_batch, proteinB_batch, y_batch
+class PPICollator:
+    def __init__(self, max_length, base_size, device, test=True):
+        self.max_length = max_length
+        self.base_size = base_size
+        self.device = device
+        self.test = test
 
+    def make_masks(self, batch_size, lengths):
+        mask = torch.zeros((batch_size, self.max_length, self.max_length), device=self.device)
+        for i, length in enumerate(lengths):
+            # Create a square mask for the non-padded sequences
+            mask[i, :length, :length] = 1
+        # Expand the mask to 4D: [batch, 1, max_len, max_len]
+        mask = mask.unsqueeze(1)
+        return mask
 
-def pack(protAs, protBs, labels, max_length, protein_dim, device):
+    def combine_masks(self, maskA, maskB):
+        lenA, lenB = maskA.size(2), maskB.size(2)
+        combined_mask = torch.zeros(maskA.size(0), 1, lenA + lenB, lenA + lenB, device=self.device)
+        combined_mask[:, :, :lenA, :lenA] = maskA
+        combined_mask[:, :, lenA:, lenA:] = maskB
+        return combined_mask
 
-    N = len(protAs)
-    protA_lens = [protA.shape[0] for protA in protAs]
-    protB_lens = [protB.shape[0] for protB in protBs]
+    def __call__(self, batch):
+        batch_size = len(batch)
+        emb_a = [item[0] for item in batch]
+        emb_b = [item[1] for item in batch]
+        labels = [item[2] for item in batch]
 
-    #batch_max_length = min(max(max(protA_lens), max(protB_lens)),max_length)
-    batch_max_length = max_length
-
-
-    protAs_new = torch.zeros((N, batch_max_length, protein_dim), device=device)
-    for i, protA in enumerate(protAs):
-        a_len = protA.shape[0]
-        if a_len <= batch_max_length:
-            protAs_new[i, :a_len, :] = protA
+        a_lengths = [len(a) for a in emb_a]
+        b_lengths = [len(b) for b in emb_b]
+        if self.test:
+            max_length = max(max(a_lengths), max(b_lengths))
         else:
-            start_pos = random.randint(0,a_len-batch_max_length)
-            protAs_new[i, :batch_max_length, :]  = protA[start_pos:start_pos+batch_max_length]
-    
-    protBs_new = torch.zeros((N, batch_max_length, protein_dim), device=device)
-    for i, protB in enumerate(protBs):
-        b_len = protB.shape[0]
-        if b_len <= batch_max_length:
-            protBs_new[i, :b_len, :] = protB
-        else:
-            start_pos = random.randint(0,b_len-batch_max_length)
-            protBs_new[i, :batch_max_length, :]  = protB[start_pos:start_pos+batch_max_length]
-    # labels_new: torch.tensor [N,]
-    
-    labels_new = torch.zeros(N, dtype=torch.long, device=device)
-    for i, label in enumerate(labels):
-        # Convert the label (assuming it's a NumPy array) to a PyTorch tensor
-        labels_new[i] = label
+            max_length = self.max_length
 
-    return (protAs_new, protBs_new, labels_new, protA_lens, protB_lens, batch_max_length, batch_max_length)
+        final_a_batch = torch.zeros((batch_size, max_length, self.base_size), device=self.device)
+        final_b_batch = torch.zeros((batch_size, max_length, self.base_size), device=self.device)
 
+        for i, (a, b) in enumerate(zip(emb_a, emb_b)):
+            a_len, b_len = len(a), len(b)
+            if a_len <= self.max_length:
+                final_a_batch[i, :a_len, :] = a
+            else:
+                start_pos = random.randint(0, a_len - self.max_length)
+                final_a_batch[i, :self.max_length, :] = a[start_pos:start_pos + self.max_length]
+            
+            if b_len <= self.max_length:
+                final_b_batch[i, :b_len, :] = b
+            else:
+                start_pos = random.randint(0, b_len - self.max_length)
+                final_b_batch[i, :self.max_length, :] = b[start_pos:start_pos + self.max_length]
 
-def test_pack(protAs, protBs, labels, max_length, protein_dim, device):
+        a_mask = self.make_masks(batch_size, a_lengths)
+        b_mask = self.make_masks(batch_size, b_lengths)
+        combined_mask_ab = self.combine_masks(a_mask, b_mask)
+        combined_mask_ba = self.combine_masks(b_mask, a_mask)
 
-    N = len(protAs)
-    protA_lens = [protA.shape[0] for protA in protAs]
-    protB_lens = [protB.shape[0] for protB in protBs]
-
-    batch_protA_max_length = max(protA_lens)
-    batch_protB_max_length = max(protB_lens)
-
-    protAs_new = torch.zeros((N, batch_protA_max_length, protein_dim), device=device)
-    for i, protA in enumerate(protAs):
-        a_len = protA.shape[0]
-        protAs_new[i, :a_len, :] = protA
-
-    protBs_new = torch.zeros((N, batch_protB_max_length, protein_dim), device=device)
-    for i, protB in enumerate(protBs):
-        b_len = protB.shape[0]
-        protBs_new[i, :b_len, :] = protB
-
-    # labels_new: torch.tensor [N,]
-    
-    labels_new = torch.zeros(N, dtype=torch.long, device=device)
-    for i, label in enumerate(labels):
-        # Convert the label (assuming it's a NumPy array) to a PyTorch tensor
-        labels_new[i] = label
-
-    return (protAs_new, protBs_new, labels_new, protA_lens, protB_lens, batch_protA_max_length, batch_protB_max_length)
+        labels = torch.tensor(labels, dtype=torch.float, device=self.device)
+        
+        return final_a_batch, final_b_batch, a_mask, b_mask, combined_mask_ab, combined_mask_ba, labels
 
 
 def get_data(config, device):

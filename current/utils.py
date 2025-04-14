@@ -5,10 +5,12 @@ import logging
 import yaml
 import numpy as np
 import timeit
+import os
+from pauc import plot_roc_with_ci
 from sklearn.metrics import precision_score
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from data import PPIDataset, list_collate, get_data
+from data import PPIDataset, PPICollator, get_data
 from metrics import calculate_metrics
 from plots import plot
 
@@ -48,15 +50,22 @@ def train_epoch(dataset, emb_dict, trainer, config, device, last_epoch):
     total_samples = 0
     batch_size = config['training']['batch_size']
     max_seq_length = config['model']['max_sequence_length']
-    protein_dim = config['model']['base_size']    
+    base_size = config['model']['base_size']    
     
     dataset = PPIDataset(dataset, emb_dict)
     total_samples += len(dataset)
-    train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=list_collate)
+    data_collator = PPICollator(max_length=max_seq_length, base_size=base_size, device=device, test=False)
+    train_loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=data_collator,
+        num_workers=4 if os.cpu_count() >= 8 else 0
+    )
     
     for proteinA, proteinB, labels in tqdm(train_loader, desc="Training", total=len(train_loader)):
         dataset_batch = list(zip(proteinA, proteinB, labels))
-        batch_loss = trainer.train(dataset_batch, max_seq_length, protein_dim, device, last_epoch)
+        batch_loss = trainer.train(dataset_batch, max_seq_length, base_size, device, last_epoch)
         
         total_loss += batch_loss
 
@@ -64,22 +73,28 @@ def train_epoch(dataset, emb_dict, trainer, config, device, last_epoch):
 
 
 # Test the model for one epoch
-def test_epoch(dataset, emb_dict, tester, config, last_epoch):
-    
+def test_epoch(dataset, emb_dict, tester, config, device, last_epoch):
     T, Y, S = [], [], []
     total_loss = 0
     total_samples = 0
     max_seq_length = config['model']['max_sequence_length']
-    protein_dim = config['model']['base_size']
+    base_size = config['model']['base_size']
     batch_size = config['training']['batch_size']
     dataset = PPIDataset(dataset, emb_dict)
     total_samples += len(dataset)
-    dev_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, collate_fn=list_collate)
+    data_collator = PPICollator(max_length=max_seq_length, base_size=base_size, device=device, test=True)
+    dev_loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=data_collator,
+        num_workers=4 if os.cpu_count() >= 8 else 0
+    )
     
     if last_epoch: 
         for proteinA, proteinB, labels in tqdm(dev_loader, desc="Testing", total=len(dev_loader)):
             dataset_batch = list(zip(proteinA, proteinB, labels))
-            batch_loss, t, y, s = tester.test(dataset_batch, max_seq_length, protein_dim, last_epoch)
+            batch_loss, t, y, s = tester.test(dataset_batch, max_seq_length, base_size, last_epoch)
             T.extend(t)
             Y.extend(y)
             S.extend(s)
@@ -90,7 +105,7 @@ def test_epoch(dataset, emb_dict, tester, config, last_epoch):
     else:
         for proteinA, proteinB, labels in tqdm(dev_loader, desc="Testing", total=len(dev_loader)):
             dataset_batch = list(zip(proteinA, proteinB, labels))
-            batch_loss, t, y, s = tester.test(dataset_batch, max_seq_length, protein_dim, last_epoch)
+            batch_loss, t, y, s = tester.test(dataset_batch, max_seq_length, base_size, last_epoch)
             T.extend(t)
             Y.extend(y)
             S.extend(s)
@@ -109,7 +124,7 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
     for epoch in range(1, config['training']['iteration'] + 1):
         if epoch != (config['training']['iteration']):
             total_loss_train, total_train_size = train_epoch(train_data, embedding_dict, trainer, config, device, last_epoch=False)
-            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, last_epoch=False)
+            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, device, last_epoch=False)
             
             end = timeit.default_timer()
             time = end - start
@@ -127,7 +142,7 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
         if epoch == (config['training']['iteration']):
             total_loss_train, total_train_size = train_epoch(train_data, embedding_dict, trainer, config, device, last_epoch=True)
             
-            T, Y, S, total_loss_test, total_test_size= test_epoch(valid_data, embedding_dict, tester, config, last_epoch=True)
+            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, device, last_epoch=True)
             AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc = calculate_metrics(T,Y,S)
             
             end = timeit.default_timer()
@@ -140,7 +155,7 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
 def evaluate(config, tester, device):
     embedding_dict, _, _, test_data = get_data(config, device)
 
-    T, Y, S, total_loss_test, total_test_size = test_epoch(test_data, embedding_dict, tester, config, last_epoch=True)
+    T, Y, S, total_loss_test, total_test_size = test_epoch(test_data, embedding_dict, tester, config, device, last_epoch=True)
     AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc = calculate_metrics(T, Y, S)
     print(total_loss_test / total_test_size, AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc)
 
@@ -167,6 +182,9 @@ def evaluate(config, tester, device):
         true_positives = sum((T_filtered == 1) & (Y_filtered == 1))
         precision_filtered = precision_score(T_filtered, Y_filtered, zero_division=0)
         print(f"Uncertainty Cutoff {cutoff}: Precision - {precision_filtered}, True Positives - {true_positives}")
+
+    # when pauc has saving
+    #plot_roc_with_ci(Y, S, save_path='output/roc_curve.png')
 
 
 # Save model state to file

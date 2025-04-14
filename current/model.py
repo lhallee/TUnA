@@ -1,12 +1,10 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
 from torch.nn.utils import spectral_norm
 from torch.optim import Adam
-from typing import Optional, Tuple
+from typing import Optional
 from functools import partial
-from einops import rearrange
 from utils import *
 from data import pack, test_pack
 from optimizer import Lookahead
@@ -140,69 +138,58 @@ class ProteinInteractionNet(nn.Module):
         adjusted_score = torch.sigmoid(adjusted_score).squeeze()
         return adjusted_score
 
-    def forward(self, protAs, protBs, protA_lens, protB_lens, batch_protA_max_length, batch_protB_max_length, last_epoch, train):
+    def forward(
+            self,
+            x_a,
+            x_b,
+            a_mask,
+            b_mask,
+            combined_mask_ab,
+            combined_mask_ba,
+            labels,
+            last_epoch,
+            train
+        ):
 
-        protA_mask = self.make_masks(protA_lens, batch_protA_max_length)
-        protB_mask = self.make_masks(protB_lens, batch_protB_max_length)
+        x_a = self.intra_encoder(x_a, a_mask)
+        x_b = self.intra_encoder(x_b, b_mask)
 
-        enc_protA = self.intra_encoder(protAs, protA_mask)
-        enc_protB = self.intra_encoder(protBs, protB_mask)
+        x_ab = self.inter_encoder(x_a, x_b, combined_mask_ab)
+        x_ba = self.inter_encoder(x_b, x_a, combined_mask_ba)
         
-        combined_mask_AB = self.combine_masks(protA_mask, protB_mask)
-        combined_mask_BA = self.combine_masks(protB_mask, protA_mask)
-
-        AB_interaction = self.inter_encoder(enc_protA, enc_protB, combined_mask_AB)
-        BA_interaction = self.inter_encoder(enc_protB, enc_protA, combined_mask_BA)
-        
-        ppi_feature_vector = torch.stack([AB_interaction, BA_interaction], dim=-1) # (b, A+B, d)
+        ppi_feature_vector = torch.stack([x_ab, x_ba], dim=-1) # (b, A+B, d)
         ppi_feature_vector = self.pooler(ppi_feature_vector).squeeze(1) # (b, d)
         
         ### TRAINING ###
         # IF its not the last epoch, we don't need to update the precision
         if last_epoch==False and train==True:
             logit = self.gp_layer(ppi_feature_vector, update_precision=False)
-            return logit
+            mean = torch.sigmoid(logit.squeeze())
+            loss = self.bce_loss(mean, labels.squeeze())
+            return loss
+        
         # IF its the last epoch, we update precision
         elif last_epoch==True and train==True:
             logit =  self.gp_layer(ppi_feature_vector, update_precision=True)
-            return logit
+            mean = torch.sigmoid(logit.squeeze())
+            loss = self.bce_loss(mean, labels.squeeze())
+            return loss
 
         ### TESTING ###
         # IF its not the last epoch, we don't need to get the variance
         elif last_epoch==False and train==False:
             logit = self.gp_layer(ppi_feature_vector, update_precision=False, get_var=False)
-            return logit
+            mean = torch.sigmoid(logit.squeeze())
+            loss = self.bce_loss(mean, labels.squeeze())
+            correct_labels = labels.cpu().numpy()
+            return loss, correct_labels, mean
+    
         #This is the last test epoch. Generate variances.
         elif last_epoch==True and train==False:
             logit, var = self.gp_layer(ppi_feature_vector, update_precision=False, get_var=True)
-            return logit, var
-
-    def __call__(self, data, last_epoch, train):
-        protAs, protBs, correct_interactions, protA_lens, protB_lens, batch_protA_max_length, batch_protB_max_length = data
-        
-        if train:
-        # We don't use variances during training
-            logit = self.forward(protAs, protBs, protA_lens, protB_lens, batch_protA_max_length, batch_protB_max_length, last_epoch, train=True)
-            mean = torch.sigmoid(logit.squeeze())
-            loss = self.bce_loss(mean, correct_interactions.float().squeeze())
-            
-            return loss
-
-        #Test but not last epoch, we don't use variances still
-        elif last_epoch==False and train==False:
-            logit = self.forward(protAs, protBs, protA_lens, protB_lens, batch_protA_max_length, batch_protB_max_length, last_epoch, train=False)
-            mean = torch.sigmoid(logit.squeeze())
-            loss = self.bce_loss(mean, correct_interactions.float().squeeze())
-            correct_labels = correct_interactions.cpu().data.numpy()
-            
-            return loss, correct_labels, mean
-        
-        #Test and last epoch
-        elif last_epoch==True and train==False:
-            logit, var = self.forward(protAs, protBs, protA_lens, protB_lens, batch_protA_max_length, batch_protB_max_length, last_epoch, train=False)
             adjusted_score = self.mean_field_average(logit, var)
-            loss = self.bce_loss(adjusted_score, correct_interactions.float().squeeze())
-            correct_labels = correct_interactions.cpu().data.numpy()
+            loss = self.bce_loss(adjusted_score, labels.squeeze())
+            correct_labels = labels.cpu().numpy()
             return loss, correct_labels, adjusted_score
 
 
@@ -247,7 +234,7 @@ class Trainer(object):
         loss.backward()
         self.optimizer.step()
         return loss.item() * len(protAs)
-    
+
 
 class Tester(object):
     def __init__(self, model):

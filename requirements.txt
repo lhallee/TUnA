@@ -17,8 +17,6 @@ wandb
 peft
 matplotlib
 peft
-biopython
-biotite
 seaborn
 matplotlib
 pauc
