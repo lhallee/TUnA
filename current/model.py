@@ -96,7 +96,7 @@ class InterEncoder(nn.Module):
 
 
 class ProteinInteractionNet(nn.Module):
-    def __init__(self, intra_encoder, inter_encoder, gp_layer, device, spectral_norm=True):
+    def __init__(self, intra_encoder, inter_encoder, gp_layer, device, use_spectral_norm=True):
         super().__init__()
         self.intra_encoder = intra_encoder
         self.inter_encoder = inter_encoder
@@ -105,9 +105,9 @@ class ProteinInteractionNet(nn.Module):
             hidden_size=hidden_size,
             n_tokens=1,
             n_heads=self.inter_encoder.n_heads,
-            use_spectral_norm=spectral_norm
+            use_spectral_norm=use_spectral_norm
         )
-        self.final_proj = spectral_norm(Linear(hidden_size * 2, hidden_size)) if spectral_norm else Linear(hidden_size * 2, hidden_size)
+        self.final_proj = spectral_norm(Linear(hidden_size * 2, hidden_size)) if use_spectral_norm else Linear(hidden_size * 2, hidden_size)
         self.device = device
         self.gp_layer = gp_layer
         self.bce_loss = nn.BCELoss()
