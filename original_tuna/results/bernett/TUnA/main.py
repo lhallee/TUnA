@@ -1,3 +1,5 @@
+import os
+import torch
 from model import (IntraEncoder, InterEncoder, ProteinInteractionNet, Trainer, Tester)
 from uncertaintyAwareDeepLearn import VanillaRFFLayer
 from utils import (
@@ -42,8 +44,14 @@ def main():
     
     # --- Training and Validation ---
     # Perform training and validation
-    train_and_validate_model(config, trainer, tester, scheduler, model, device)
-    evaluate(config, tester) ### NOTE we added this
+
+    if os.path.exists('output/model'): ### NOTE we added this
+        print("Model already exists. Skipping training.")
+        model = torch.load('output/model')
+        evaluate(config, tester) ### NOTE we added this
+    else:
+        train_and_validate_model(config, trainer, tester, scheduler, model, device)
+        evaluate(config, tester) ### NOTE we added this
 
 # Execute the main function when the script is run
 if __name__ == "__main__":
