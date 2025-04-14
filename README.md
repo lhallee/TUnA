@@ -38,10 +38,10 @@ python -m main
 ```
 
 ### Change log
-| Change | Time | Val AUC | Link |
-|------|--------|-------------|--------|
+| Changes | Time | Val AUC | Link |
+|-|-|-|-|
 | Base TUnA | 7184s | 0.6604 | [log](original_tuna/bernett/TUnA/base_tuna_4_12_25.txt) |
 | Synthyra model and improved data loading| 2271s | 0.6754 | [log](runs/1/switch_to_synthyra_4_13_25.txt) |
 | Flash attn | 2139s | 0.6613 | [log](runs/2/flash_attn_4_13_25.txt) |
-
+| Fixed mask, rotary, hidden sizes 128, intermediate size 512, ESM2-650 |  |  | [log](runs/2/flash_attn_4_13_25.txt) |
 

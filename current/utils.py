@@ -70,10 +70,11 @@ def test_epoch(dataset, emb_dict, tester, config, last_epoch):
     total_loss = 0
     total_samples = 0
     max_seq_length = config['model']['max_sequence_length']
-    protein_dim = config['model']['base_size'] 
+    protein_dim = config['model']['base_size']
+    batch_size = config['training']['batch_size']
     dataset = PPIDataset(dataset, emb_dict)
     total_samples += len(dataset)
-    dev_loader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=list_collate)
+    dev_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, collate_fn=list_collate)
     
     if last_epoch: 
         for proteinA, proteinB, labels in tqdm(dev_loader, desc="Testing", total=len(dev_loader)):
