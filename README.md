@@ -46,7 +46,7 @@ python -m main
 | Flash attn | 2139s | 0.6613 | NA | [log](runs/2/flash_attn_4_13_25.txt) |
 | Fixed mask, rotary, swiglu, ESM2-650, batching during eval | 868s | 0.6854 | 0.6978 | [log](runs/3/650_4_14_25.txt) |
 | bias=False, attention pooling, data collator update| 1225s | 0.6462 | 0.6358 | [log](runs/4/attention_pool_4_14_25.txt) |
-| bias=False, back to max pool | | 0.6462 |  | [log]() |
+| bias=False, back to max pool | 1177s | 0.6859 | 0.6930 | [log](runs/5/bias_false_4_14_25.txt) |
 
 
 ### Notes

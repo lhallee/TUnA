@@ -106,7 +106,7 @@ def get_data(config, device):
         train_data['SeqA'] + train_data['SeqB'] + valid_data['SeqA'] + valid_data['SeqB'] + test_data['SeqA'] + test_data['SeqB']
     ))
 
-    esm150 = AutoModel.from_pretrained('Synthyra/ESMplusplus_large', trust_remote_code=True).to(device).eval()
+    esm150 = AutoModel.from_pretrained('Synthyra/ESM2-650M', trust_remote_code=True).to(device).eval()
     # this is a dict of seq:embedding
     embedding_dict = esm150.embed_dataset(
         sequences=all_seqs,
