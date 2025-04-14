@@ -10,10 +10,62 @@ from einops import rearrange
 from utils import *
 from data import pack, test_pack
 from optimizer import Lookahead
-from attention import SelfAttention, AttentionPooler
+from rotary import RotaryEmbedding
 
 
-Linear = partial(nn.Linear, bias=False)
+class SelfAttention(nn.Module):
+    def __init__(self, hidden_size, n_heads, dropout, rotary=True):
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.n_heads = n_heads
+        self.d_head = hidden_size // n_heads
+        assert hidden_size % n_heads == 0, "hidden_size must be divisible by n_heads"
+
+        self.w_q = spectral_norm(nn.Linear(hidden_size, hidden_size))
+        self.w_k = spectral_norm(nn.Linear(hidden_size, hidden_size))
+        self.w_v = spectral_norm(nn.Linear(hidden_size, hidden_size))
+        self.out_proj = spectral_norm(nn.Linear(hidden_size, hidden_size))
+
+        self.dropout_rate = dropout
+        self.rotary = RotaryEmbedding(hidden_size // n_heads) if rotary else None
+        self.reshaper = partial(rearrange, pattern="b s (h d) -> b h s d", h=n_heads)
+
+    def _apply_rotary(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        q = q.unflatten(-1, (self.n_heads, self.d_head))
+        k = k.unflatten(-1, (self.n_heads, self.d_head))
+        q, k = self.rotary(q, k)
+        q = q.flatten(-2, -1)
+        k = k.flatten(-2, -1)
+        return q, k
+
+    def forward(self, x: torch.Tensor, attention_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        b, L, _ = x.shape
+        if attention_mask is not None:
+            if attention_mask.dim() == 2:
+                attention_mask = attention_mask[:, None, None, :].expand(b, 1, L, L).bool()
+            elif attention_mask.dim() == 3:
+                attention_mask = attention_mask.unsqueeze(1).bool()
+            elif attention_mask.dim() == 4:
+                attention_mask = attention_mask.bool()
+            else:
+                raise ValueError(f"Invalid attention mask dimension: {attention_mask.dim()}")
+
+        q = self.w_q(x)
+        k = self.w_k(x)
+        v = self.w_v(x)
+
+        if self.rotary:
+            q, k = self._apply_rotary(q, k)
+
+        q, k, v = map(self.reshaper, (q, k, v))
+        a = F.scaled_dot_product_attention(
+            q, k, v,
+            attn_mask=attention_mask,
+            dropout_p=self.dropout_rate,
+            is_causal=False
+        )
+        a = rearrange(a, "b h s d -> b s (h d)") # (bs, seq_len, n_heads * d_head)
+        return self.out_proj(a) # (bs, seq_len, hidden_size)
 
 
 class Feedforward(nn.Module):
@@ -24,9 +76,9 @@ class Feedforward(nn.Module):
         self.intermediate_size = intermediate_size
 
         # SwiGLU implementation requires two projection matrices
-        self.w1 = spectral_norm(Linear(hidden_size, intermediate_size))
-        self.w2 = spectral_norm(Linear(hidden_size, intermediate_size))
-        self.down = spectral_norm(Linear(intermediate_size, hidden_size))
+        self.w1 = spectral_norm(nn.Linear(hidden_size, intermediate_size))
+        self.w2 = spectral_norm(nn.Linear(hidden_size, intermediate_size))
+        self.down = spectral_norm(nn.Linear(intermediate_size, hidden_size))
 
         self.dropout = nn.Dropout(dropout)
         self.act = nn.SiLU()
@@ -60,7 +112,7 @@ class EncoderLayer(nn.Module):
 class IntraEncoder(nn.Module):
     def __init__(self, prot_dim, hidden_size, n_layers, n_heads, intermediate_size, dropout, activation_fn):
         super().__init__()   
-        self.input_proj = spectral_norm(Linear(prot_dim, hidden_size))
+        self.input_proj = spectral_norm(nn.Linear(prot_dim, hidden_size))
         self.n_layers = n_layers
         self.layer = nn.ModuleList()
         for _ in range(n_layers):
@@ -106,12 +158,6 @@ class ProteinInteractionNet(nn.Module):
         super().__init__()
         self.intra_encoder = intra_encoder
         self.inter_encoder = inter_encoder
-        self.pooler = AttentionPooler(
-            hidden_size=self.inter_encoder.hidden_size,
-            n_tokens=1,
-            n_heads=self.inter_encoder.n_heads,
-            use_spectral_norm=True
-        )
         self.device = device
         self.gp_layer = gp_layer
         self.bce_loss = nn.BCELoss()
@@ -154,8 +200,8 @@ class ProteinInteractionNet(nn.Module):
         AB_interaction = self.inter_encoder(enc_protA, enc_protB, combined_mask_AB)
         BA_interaction = self.inter_encoder(enc_protB, enc_protA, combined_mask_BA)
         
-        ppi_feature_vector = torch.stack([AB_interaction, BA_interaction], dim=-1) # (b, A+B, d)
-        ppi_feature_vector = self.pooler(ppi_feature_vector).squeeze(1) # (b, d)
+        #[batch, hidden_size*2]
+        ppi_feature_vector, _ = torch.max(torch.stack([AB_interaction, BA_interaction], dim=-1), dim=-1)
         
         ### TRAINING ###
         # IF its not the last epoch, we don't need to update the precision
