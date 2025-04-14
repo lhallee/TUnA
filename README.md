@@ -51,3 +51,4 @@ python -m main
 
 ### Notes
 - Attention pooling looks to be worse and slower
+- The collate method with `pack` may be slighly faster than the current multithreaded approach. May also just need more or less workers
