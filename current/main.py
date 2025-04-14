@@ -44,7 +44,6 @@ def main():
         model_config['intermediate_size'],
         model_config['dropout'],
         model_config['activation_function'],
-        device
     )
     
     inter_encoder = InterEncoder(
@@ -55,7 +54,6 @@ def main():
         model_config['intermediate_size'],
         model_config['dropout'],
         model_config['activation_function'],
-        device
     )
 
     gp_layer = VanillaRFFLayer(
