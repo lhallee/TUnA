@@ -14,7 +14,8 @@ from utils import (
     load_configuration,
     initialize_logging,
     set_random_seed,
-    train_and_validate_model
+    train_and_validate_model,
+    evaluate
 )
 
 def main():
@@ -77,6 +78,7 @@ def main():
     # --- Training and Validation ---
     # Perform training and validation
     train_and_validate_model(config, trainer, tester, scheduler, model, device)
+    evaluate(config, tester, device)
 
 
 # Execute the main function when the script is run

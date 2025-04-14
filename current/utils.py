@@ -63,9 +63,9 @@ def train_epoch(dataset, emb_dict, trainer, config, device, last_epoch):
         num_workers=4 if os.cpu_count() >= 8 else 0
     )
     
-    for proteinA, proteinB, labels in tqdm(train_loader, desc="Training", total=len(train_loader)):
-        dataset_batch = list(zip(proteinA, proteinB, labels))
-        batch_loss = trainer.train(dataset_batch, max_seq_length, base_size, device, last_epoch)
+    for batch in tqdm(train_loader, desc="Training", total=len(train_loader)):
+        # batch is alread on device
+        batch_loss = trainer.train(batch, base_size, device, last_epoch)
         
         total_loss += batch_loss
 

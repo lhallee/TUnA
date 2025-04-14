@@ -1,12 +1,12 @@
 # Model Architecture
 model:
   base_size: 1280 # ESM2 embedding dimensions
-  hidden_size: 128
+  hidden_size: 64
   n_layers: 1 # Number of encoder and decoder layers
   n_heads: 8 # Number of attention heads
-  intermediate_size: 512
+  intermediate_size: 256
   dropout: 0.2
-  max_sequence_length: 1024  # Maximum sequence length for input data
+  max_sequence_length: 512  # Maximum sequence length for input data
   activation_function: "swish" # Options ["relu", "gelu", "swish", "elu", "leaky_relu", "mish"]
   gp_layer:
     rffs: 4096
