@@ -25,13 +25,13 @@ class PPIDataset(TorchDataset):
     
 
 class PPICollator:
-    def __init__(self, max_length, base_size, test=True):
+    def __init__(self, max_length, base_size, test=False):
         self.max_length = max_length
         self.base_size = base_size
         self.test = test
 
-    def make_masks(self, batch_size, lengths):
-        mask = torch.zeros((batch_size, self.max_length, self.max_length))
+    def make_masks(self, batch_size, lengths, max_length):
+        mask = torch.zeros((batch_size, max_length, max_length))
         for i, length in enumerate(lengths):
             # Create a square mask for the non-padded sequences
             mask[i, :length, :length] = 1
@@ -64,20 +64,20 @@ class PPICollator:
 
         for i, (a, b) in enumerate(zip(emb_a, emb_b)):
             a_len, b_len = len(a), len(b)
-            if a_len <= self.max_length:
+            if a_len <= max_length:
                 final_a_batch[i, :a_len, :] = a
             else:
-                start_pos = random.randint(0, a_len - self.max_length)
-                final_a_batch[i, :self.max_length, :] = a[start_pos:start_pos + self.max_length]
+                start_pos = random.randint(0, a_len - max_length)
+                final_a_batch[i, :max_length, :] = a[start_pos:start_pos + max_length]
             
-            if b_len <= self.max_length:
+            if b_len <= max_length:
                 final_b_batch[i, :b_len, :] = b
             else:
-                start_pos = random.randint(0, b_len - self.max_length)
-                final_b_batch[i, :self.max_length, :] = b[start_pos:start_pos + self.max_length]
+                start_pos = random.randint(0, b_len - max_length)
+                final_b_batch[i, :max_length, :] = b[start_pos:start_pos + max_length]
 
-        a_mask = self.make_masks(batch_size, a_lengths)
-        b_mask = self.make_masks(batch_size, b_lengths)
+        a_mask = self.make_masks(batch_size, a_lengths, max_length)
+        b_mask = self.make_masks(batch_size, b_lengths, max_length)
         combined_mask_ab = self.combine_masks(a_mask, b_mask)
         combined_mask_ba = self.combine_masks(b_mask, a_mask)
         labels = torch.tensor(labels, dtype=torch.float)
