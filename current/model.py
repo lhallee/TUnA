@@ -136,7 +136,7 @@ class ProteinInteractionNet(nn.Module):
 
         x_ab = self.inter_encoder(x_a, x_b, combined_mask_ab)
         x_ba = self.inter_encoder(x_b, x_a, combined_mask_ba)
-        
+        print(x_ab.shape, x_ba.shape)
         ppi_feature_vector = torch.stack([x_ab, x_ba], dim=-1) # (b, A+B, d)
         ppi_feature_vector = self.pooler(ppi_feature_vector).squeeze(1) # (b, d)
         
