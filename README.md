@@ -45,4 +45,9 @@ python -m main
 | Synthyra version of ESM2-150, improved torch Dataset | 2271s | 0.6754 | NA | [log](runs/1/switch_to_synthyra_4_13_25.txt) |
 | Flash attn | 2139s | 0.6613 | NA | [log](runs/2/flash_attn_4_13_25.txt) |
 | Fixed mask, rotary, swiglu, ESM2-650, batching during eval | 868s | 0.6854 | 0.6978 | [log](runs/3/650_4_14_25.txt) |
-| bias=False, attention pooling, data collator update| | | | [log]() |
+| bias=False, attention pooling, data collator update| 1225s | 0.6462 | 0.6358 | [log](runs/4/attention_pool_4_14_25.txt) |
+| bias=False, back to max pool | | 0.6462 |  | [log]() |
+
+
+### Notes
+- Attention pooling looks to be worse and slower

@@ -92,9 +92,7 @@ class InterEncoder(nn.Module):
         for layer in self.layer:
             combined = layer(combined, combined_mask)
 
-        combined_mask_2d = combined_mask[:,0,:,0]
-        label = torch.sum(combined*combined_mask_2d[:,:,None], dim=1)/combined_mask_2d.sum(dim=1, keepdims=True)
-        return label
+        return combined
 
 
 class ProteinInteractionNet(nn.Module):
@@ -135,10 +133,13 @@ class ProteinInteractionNet(nn.Module):
         x_a = self.intra_encoder(x_a, a_mask)
         x_b = self.intra_encoder(x_b, b_mask)
 
-        x_ab = self.inter_encoder(x_a, x_b, combined_mask_ab)
-        x_ba = self.inter_encoder(x_b, x_a, combined_mask_ba)
+        x_ab = self.inter_encoder(x_a, x_b, combined_mask_ab) # (b, A+B, d)
+        x_ba = self.inter_encoder(x_b, x_a, combined_mask_ba) # (b, A+B, d)
 
-        ppi_feature_vector, _ = torch.max(torch.stack([x_ab, x_ba], dim=-1), dim=-1)
+        x_ab = self.pooler(x_ab).squeeze(1) # (b, d)
+        x_ba = self.pooler(x_ba).squeeze(1) # (b, d)
+        ppi_feature_vector = torch.cat([x_ab, x_ba], dim=-1) # (b, 2d)
+        ppi_feature_vector = self.final_proj(ppi_feature_vector) # (b, d)
 
         ### TRAINING ###
         # IF its not the last epoch, we don't need to update the precision

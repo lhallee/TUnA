@@ -200,7 +200,7 @@ class ProteinInteractionNet(nn.Module):
         AB_interaction = self.inter_encoder(enc_protA, enc_protB, combined_mask_AB)
         BA_interaction = self.inter_encoder(enc_protB, enc_protA, combined_mask_BA)
         
-        #[batch, hidden_size*2]
+        #[batch, hidden_size]
         ppi_feature_vector, _ = torch.max(torch.stack([AB_interaction, BA_interaction], dim=-1), dim=-1)
         
         ### TRAINING ###

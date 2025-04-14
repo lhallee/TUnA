@@ -208,7 +208,7 @@ def evaluate(config, tester, device, batch_size=1):
     test_interactions.to_csv('evaluation_results.tsv', sep='\t', index=False)
 
     # when pauc has saving
-    plot_roc_with_ci(Y.astype(int), S.astype(float), save_path='output/roc_curve.png')
+    plot_roc_with_ci(Y, S, save_path='output/roc_curve.png')
 
 
 # Save model state to file
