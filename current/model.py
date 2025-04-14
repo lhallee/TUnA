@@ -92,6 +92,8 @@ class InterEncoder(nn.Module):
         for layer in self.layer:
             combined = layer(combined, combined_mask)
 
+        print(f'combined.shape: {combined.shape}')
+
         combined_mask_2d = combined_mask[:,0,:,0]
         label = torch.sum(combined*combined_mask_2d[:,:,None], dim=1)/combined_mask_2d.sum(dim=1, keepdims=True)
         
@@ -134,10 +136,10 @@ class ProteinInteractionNet(nn.Module):
         x_a = self.intra_encoder(x_a, a_mask)
         x_b = self.intra_encoder(x_b, b_mask)
 
-        x_ab = self.inter_encoder(x_a, x_b, combined_mask_ab)
-        x_ba = self.inter_encoder(x_b, x_a, combined_mask_ba)
-        print(x_ab.shape, x_ba.shape)
-        ppi_feature_vector = torch.stack([x_ab, x_ba], dim=-1) # (b, A+B, d)
+        x_ab = self.inter_encoder(x_a, x_b, combined_mask_ab) # (b, 64)
+        x_ba = self.inter_encoder(x_b, x_a, combined_mask_ba) # (b, 64)
+        print(f'x_ab.shape: {x_ab.shape}, x_ba.shape: {x_ba.shape}')
+        ppi_feature_vector = torch.cat([x_ab, x_ba], dim=-1) # (b, A+B, d)
         ppi_feature_vector = self.pooler(ppi_feature_vector).squeeze(1) # (b, d)
         
         ### TRAINING ###
