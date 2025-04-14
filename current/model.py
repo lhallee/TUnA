@@ -203,33 +203,27 @@ class Trainer(object):
                 weight_p.append(p)
         return weight_p, bias_p
 
-    def train(self, dataset, max_length, protein_dim, device, last_epoch):
+    def train(self, batch, last_epoch):
         """ Train the model on the provided dataset. """
         self.model.train()
         self.optimizer.zero_grad()
-        
-        protAs, protBs, labels = zip(*dataset)
-        data_pack = pack(protAs, protBs, labels, max_length, protein_dim, device)
-        loss = self.model(data_pack, last_epoch, train=True)
+        loss = self.model(**batch, last_epoch=last_epoch, train=True)
         loss.backward()
         self.optimizer.step()
-        return loss.item() * len(protAs)
+        return loss.item()
 
 
 class Tester(object):
     def __init__(self, model):
         self.model = model
     
-    def test(self, dataset, max_length, protein_dim, last_epoch):
+    def test(self, batch, last_epoch):
         """ Test the model on the provided dataset. """
         self.model.eval()
         with torch.no_grad():
-            protAs, protBs, labels = zip(*dataset)
-            data_pack = test_pack(protAs, protBs, labels, max_length, protein_dim, device=self.model.device)
-
-            loss, correct_labels, adjusted_score = self.model(data_pack, last_epoch, train=False)
+            loss, correct_labels, adjusted_score = self.model(**batch, last_epoch=last_epoch, train=False)
             T = correct_labels
             Y = np.round(adjusted_score.flatten().cpu().numpy())
             S = adjusted_score.flatten().cpu().numpy()
             
-            return loss.item() * len(dataset), T, Y, S
+            return loss.item(), T, Y, S

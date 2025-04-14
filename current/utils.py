@@ -65,9 +65,8 @@ def train_epoch(dataset, emb_dict, trainer, config, device, last_epoch):
     
     for batch in tqdm(train_loader, desc="Training", total=len(train_loader)):
         # batch is alread on device
-        batch_loss = trainer.train(batch, base_size, device, last_epoch)
-        
-        total_loss += batch_loss
+        batch_loss = trainer.train(batch, last_epoch)
+        total_loss += batch_loss * len(batch['x_a'])
 
     return total_loss, total_samples
 
@@ -90,26 +89,24 @@ def test_epoch(dataset, emb_dict, tester, config, device, last_epoch):
         collate_fn=data_collator,
         num_workers=4 if os.cpu_count() >= 8 else 0
     )
-    
+
     if last_epoch: 
-        for proteinA, proteinB, labels in tqdm(dev_loader, desc="Testing", total=len(dev_loader)):
-            dataset_batch = list(zip(proteinA, proteinB, labels))
-            batch_loss, t, y, s = tester.test(dataset_batch, max_seq_length, base_size, last_epoch)
+        for batch in tqdm(dev_loader, desc="Testing", total=len(dev_loader)):
+            batch_loss, t, y, s = tester.test(batch, last_epoch)
             T.extend(t)
             Y.extend(y)
             S.extend(s)
-            total_loss += batch_loss
+            total_loss += batch_loss * len(batch['x_a'])
             
         return T, Y, S, total_loss, total_samples
 
     else:
-        for proteinA, proteinB, labels in tqdm(dev_loader, desc="Testing", total=len(dev_loader)):
-            dataset_batch = list(zip(proteinA, proteinB, labels))
-            batch_loss, t, y, s = tester.test(dataset_batch, max_seq_length, base_size, last_epoch)
+        for batch in tqdm(dev_loader, desc="Testing", total=len(dev_loader)):
+            batch_loss, t, y, s = tester.test(batch, last_epoch)
             T.extend(t)
             Y.extend(y)
             S.extend(s)
-            total_loss += batch_loss
+            total_loss += batch_loss * len(batch['x_a'])
             
         return T, Y, S, total_loss, total_samples
 

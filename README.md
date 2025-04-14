@@ -38,10 +38,11 @@ python -m main
 ```
 
 ### Change log
-| Changes | Time / GH200 | Val AUC | Link |
+| Version / changes | Time / GH200 | Val AUC | Test AUC | Link |
 |-|-|-|-|
-| Base TUnA | 7184s | 0.6604 | [log](original_tuna/results/bernett/TUnA/base_tuna_4_12_25.txt) |
-| Synthyra version of ESM2-150, improved torch Dataset | 2271s / GH200 | 0.6754 | [log](runs/1/switch_to_synthyra_4_13_25.txt) |
-| Flash attn | 2139s | 0.6613 | [log](runs/2/flash_attn_4_13_25.txt) |
-| Fixed mask, rotary, swiglu, ESM2-650, batching during eval | |  | [log]() |
-| bias=False, attention pooling, data collator update| |  | [log]() |
+| Reported results | NA | 0.666 | 0.70 | [paper](https://academic.oup.com/bib/article/25/5/bbae359/7720609#476124851) |
+| Run base TUnA | 7184s | 0.6604 | NA | [log](original_tuna/results/bernett/TUnA/base_tuna_4_12_25.txt) |
+| Synthyra version of ESM2-150, improved torch Dataset | 2271s | 0.6754 | NA | [log](runs/1/switch_to_synthyra_4_13_25.txt) |
+| Flash attn | 2139s | 0.6613 | NA | [log](runs/2/flash_attn_4_13_25.txt) |
+| Fixed mask, rotary, swiglu, ESM2-650, batching during eval | 868s | 0.6854 | 0.6978 | [log](runs/1/650_4_14_25.txt) |
+| bias=False, attention pooling, data collator update| | | | [log]() |

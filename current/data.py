@@ -81,10 +81,17 @@ class PPICollator:
         b_mask = self.make_masks(batch_size, b_lengths)
         combined_mask_ab = self.combine_masks(a_mask, b_mask)
         combined_mask_ba = self.combine_masks(b_mask, a_mask)
-
         labels = torch.tensor(labels, dtype=torch.float, device=self.device)
         
-        return final_a_batch, final_b_batch, a_mask, b_mask, combined_mask_ab, combined_mask_ba, labels
+        return {
+            'x_a': final_a_batch,
+            'x_b': final_b_batch,
+            'a_mask': a_mask,
+            'b_mask': b_mask,
+            'combined_mask_ab': combined_mask_ab,
+            'combined_mask_ba': combined_mask_ba,
+            'labels': labels
+        }
 
 
 def get_data(config, device):
