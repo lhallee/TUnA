@@ -9,8 +9,8 @@ import timeit
 from transformers import AutoModel
 from sklearn.metrics import precision_score
 from torch.utils.data import DataLoader
-from data import PPIDataset, list_collate
-from metrics import calculate_metrics, log_and_save_metrics
+from data import PPIDataset, list_collate, get_data
+from metrics import calculate_metrics
 from plots import plot
 
 
@@ -65,14 +65,14 @@ def train_epoch(dataset, emb_dict, trainer, config, device, last_epoch):
 
 
 # Test the model for one epoch
-def test_epoch(dictionary, action_file, subset, tester, config, last_epoch):
+def test_epoch(dataset, emb_dict, tester, config, last_epoch):
     
     T, Y, S = [], [], []
     total_loss = 0
     total_samples = 0
     max_seq_length = config['model']['max_sequence_length']
     protein_dim = config['model']['protein_embedding_dim'] 
-    dataset = ProteinInteractionDataset(dictionary, action_file, subset)
+    dataset = PPIDataset(dataset, emb_dict)
     total_samples += len(dataset)
     dev_loader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=list_collate)
     
@@ -103,21 +103,13 @@ def test_epoch(dictionary, action_file, subset, tester, config, last_epoch):
 def train_and_validate_model(config, trainer, tester, scheduler, model, device):
     max_AUC_dev = 0
 
+    embedding_dict, train_data, valid_data, _ = get_data(config, device)
 
-    train_dictionary = load_dictionary(config['directories']['train_dictionary'])
-    test_dictionary = load_dictionary(config['directories']['validation_dictionary'])
-
-    train_interactions = config['directories']['train_interactions']
-    test_interactions = config['directories']['validation_interactions']
     start = timeit.default_timer()
-    subset = config['training']['subset']
-    if subset < 0:
-        subset = None
-
     for epoch in range(1, config['training']['iteration'] + 1):
         if epoch != (config['training']['iteration']):
-            total_loss_train, total_train_size = train_epoch(train_dictionary, train_interactions, subset, trainer, config, device, last_epoch=False)
-            T, Y, S, total_loss_test, total_test_size = test_epoch(test_dictionary, test_interactions, subset, tester, config, last_epoch=False)
+            total_loss_train, total_train_size = train_epoch(train_data, embedding_dict, trainer, config, device, last_epoch=False)
+            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, last_epoch=False)
             
             end = timeit.default_timer()
             time = end - start
@@ -133,9 +125,9 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
             plot(config['directories']['metrics_output'])
         
         if epoch == (config['training']['iteration']):
-            total_loss_train, total_train_size = train_epoch(train_dictionary, train_interactions, subset, trainer, config, device, last_epoch=True)
+            total_loss_train, total_train_size = train_epoch(train_data, embedding_dict, trainer, config, device, last_epoch=True)
             
-            T, Y, S, total_loss_test, total_test_size= test_epoch(test_dictionary, test_interactions, subset, tester, config, last_epoch=True)
+            T, Y, S, total_loss_test, total_test_size= test_epoch(valid_data, embedding_dict, tester, config, last_epoch=True)
             AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc = calculate_metrics(T,Y,S)
             
             end = timeit.default_timer()
@@ -145,15 +137,10 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
             save_model(model, "output/model")
 
 
-def evaluate(config, tester):
-    test_dictionary = load_dictionary(config['directories']['test_dictionary'])
-    test_interactions = config['directories']['test_interactions']
+def evaluate(config, tester, device):
+    embedding_dict, _, _, test_data = get_data(config, device)
 
-    subset = config['training']['subset']
-    if subset < 0:
-        subset = None
-
-    T, Y, S, total_loss_test, total_test_size = test_epoch(test_dictionary, test_interactions, subset, tester, config, last_epoch=True)
+    T, Y, S, total_loss_test, total_test_size = test_epoch(test_data, embedding_dict, tester, config, last_epoch=True)
     AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc = calculate_metrics(T, Y, S)
     print(total_loss_test / total_test_size, AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc)
 
@@ -164,10 +151,9 @@ def evaluate(config, tester):
     # Calculate uncertainty
     uncertainty = (1 - np.array(S)) * (np.array(S)) / 0.25
 
+    # test_data has columns A, B, SeqA, SeqB, labels
+    test_interactions = test_data.to_pandas()
     # Add S and uncertainty columns to test_interactions DataFrame
-    test_interactions = pd.read_csv(test_interactions, sep='\t', header=None)
-    column_names = ['Protein A', 'Protein B', 'T']
-    test_interactions.columns = column_names[:len(test_interactions.columns)]
     test_interactions['S'] = S
     test_interactions['uncertainty'] = uncertainty
 

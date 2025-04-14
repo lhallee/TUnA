@@ -105,7 +105,7 @@ def get_data(config, device):
     batch_size = config['training']['batch_size']
     data = load_dataset('Synthyra/bernett_gold_ppi')
     train_data = data['train'].filter(lambda x: len(x['SeqA']) <= max_length and len(x['SeqB']) <= max_length)
-    valid_data = data['validation'].filter(lambda x: len(x['SeqA']) <= max_length and len(x['SeqB']) <= max_length)
+    valid_data = data['valid'].filter(lambda x: len(x['SeqA']) <= max_length and len(x['SeqB']) <= max_length)
     test_data = data['test']
 
     all_seqs = list(set(

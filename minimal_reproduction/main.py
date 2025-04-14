@@ -1,4 +1,5 @@
 import torch
+import os
 from torchinfo import summary
 from model import (
     IntraEncoder,
@@ -8,11 +9,11 @@ from model import (
     Tester
 )
 from uncertaintyAwareDeepLearn import VanillaRFFLayer
+from optimizer import initialize_scheduler
 from utils import (
     load_configuration,
     initialize_logging,
     set_random_seed,
-    initialize_scheduler,
     train_and_validate_model
 )
 
@@ -24,6 +25,7 @@ def main():
     training_config = config['training']
 
     # Set up logging to save output to a text file
+    os.makedirs("output", exist_ok=True)
     initialize_logging("output/results.txt")
     
     # Set random seed for reproducibility
