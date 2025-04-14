@@ -14,15 +14,25 @@ There seems to be some low hanging fruit in terms of improvements, but who knows
 - I'm going to be trying some compression schemes to see if we really need full-residue information
 - token-parameter cross attention is almost always better than max pooling
 
-## To replicate the original TUnA
+## Get environment ready
 ```
 git clone https://github.com/lhallee/TUnA.git
 cd TUnA
 chmod +x setup_bioenv.sh
 ./setup_bioenv.sh
 source ~/bioenv/bin/activate
+```
+
+## To replicate the original TUnA
+```
 cd original_tuna
 python -m process_bernett
 cd results/bernett/TUnA
 python -m main
+```
+
+## Minimal reproduction
+```
+cd minimal_reproduction
+py -m main
 ```
