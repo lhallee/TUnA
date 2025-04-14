@@ -72,13 +72,12 @@ def train_epoch(dataset, emb_dict, trainer, config, device, last_epoch):
 
 
 # Test the model for one epoch
-def test_epoch(dataset, emb_dict, tester, config, device, last_epoch):
+def test_epoch(dataset, emb_dict, tester, config, device, last_epoch, batch_size=1):
     T, Y, S = [], [], []
     total_loss = 0
     total_samples = 0
     max_seq_length = config['model']['max_sequence_length']
     base_size = config['model']['base_size']
-    batch_size = config['training']['batch_size']
     dataset = PPIDataset(dataset, emb_dict)
     total_samples += len(dataset)
     data_collator = PPICollator(max_length=max_seq_length, base_size=base_size, test=True)
@@ -116,15 +115,14 @@ def test_epoch(dataset, emb_dict, tester, config, device, last_epoch):
 # Train and validate the model across multiple epochs
 def train_and_validate_model(config, trainer, tester, scheduler, model, device):
     max_AUC_dev = 0
-
+    batch_size = config['training']['batch_size']
     embedding_dict, train_data, valid_data, _ = get_data(config, device)
 
     start = timeit.default_timer()
     for epoch in range(1, config['training']['iteration'] + 1):
         if epoch != (config['training']['iteration']):
-            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, device, last_epoch=False)
             total_loss_train, total_train_size = train_epoch(train_data, embedding_dict, trainer, config, device, last_epoch=False)
-            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, device, last_epoch=False)
+            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, device, last_epoch=False, batch_size=batch_size)
             
             end = timeit.default_timer()
             time = end - start
@@ -140,10 +138,9 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
             plot(config['directories']['metrics_output'])
         
         if epoch == (config['training']['iteration']):
-            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, device, last_epoch=False)
             total_loss_train, total_train_size = train_epoch(train_data, embedding_dict, trainer, config, device, last_epoch=True)
             
-            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, device, last_epoch=True)
+            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, device, last_epoch=True, batch_size=batch_size)
             AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc = calculate_metrics(T,Y,S)
             
             end = timeit.default_timer()
@@ -156,7 +153,7 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
 def evaluate(config, tester, device, batch_size=1):
     embedding_dict, _, _, test_data = get_data(config, device)
 
-    T, Y, S, total_loss_test, total_test_size = test_epoch(test_data, embedding_dict, tester, config, last_epoch=True, batch_size=batch_size)
+    T, Y, S, total_loss_test, total_test_size = test_epoch(test_data, embedding_dict, tester, config, device, last_epoch=True, batch_size=batch_size)
     AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc = calculate_metrics(T, Y, S)
     
     # Print and write results to file

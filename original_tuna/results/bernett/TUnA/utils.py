@@ -145,6 +145,8 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
             plot(config['directories']['metrics_output'])
             save_model(model, "output/model")
 
+
+### NOTE we have changed eval to write to results.txt
 def evaluate(config, tester):
     test_dictionary = load_dictionary(config['directories']['test_dictionary'])
     test_interactions = config['directories']['test_interactions']
@@ -156,13 +158,48 @@ def evaluate(config, tester):
     T, Y, S, total_loss_test, total_test_size = test_epoch(test_dictionary, test_interactions, subset, tester, config, last_epoch=True)
     AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc = calculate_metrics(T, Y, S)
     print(total_loss_test / total_test_size, AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc)
-
+    
+    # Print and write results to file
+    test_results = [
+        f'Test loss: {total_loss_test / total_test_size}',
+        f'Test AUC: {AUC_dev}',
+        f'Test PRC: {PRC_dev}',
+        f'Test accuracy: {accuracy}',
+        f'Test sensitivity: {sensitivity}',
+        f'Test specificity: {specificity}',
+        f'Test precision: {precision}',
+        f'Test F1: {f1}',
+        f'Test MCC: {mcc}'
+    ]
+    
+    # Print results
+    for result in test_results:
+        print(result)
+    
     # Calculate Expected Calibration Error
     ece = cal.get_ece(S, T)
-    print("Expected Calibration Error (ECE):", ece)
+    ece_result = f"Expected Calibration Error (ECE): {ece}"
+    print(ece_result)
+    test_results.append(ece_result)
     
     # Calculate uncertainty
     uncertainty = (1 - np.array(S)) * (np.array(S)) / 0.25
+
+    for cutoff in [0.2, 0.4, 0.6, 0.8]:
+        filtered_indices = uncertainty < cutoff
+        T_filtered = np.array(T)[filtered_indices]
+        Y_filtered = np.array(Y)[filtered_indices]
+        true_positives = sum((T_filtered == 1) & (Y_filtered == 1))
+        precision_filtered = precision_score(T_filtered, Y_filtered, zero_division=0)
+        cutoff_result = f"Uncertainty Cutoff {cutoff}: Precision - {precision_filtered}, True Positives - {true_positives}"
+        print(cutoff_result)
+        test_results.append(cutoff_result)
+    
+    # Append all results to output file
+    with open(config['directories']['metrics_output'], 'a') as f:
+        f.write('\n')
+        for result in test_results:
+            f.write(result + '\n')
 
     # Add S and uncertainty columns to test_interactions DataFrame
     test_interactions = pd.read_csv(test_interactions, sep='\t', header=None)
@@ -174,13 +211,6 @@ def evaluate(config, tester):
     # Saving to TSV
     test_interactions.to_csv('evaluation_results.tsv', sep='\t', index=False)
 
-    for cutoff in [0.2, 0.4, 0.6, 0.8]:
-        filtered_indices = uncertainty < cutoff
-        T_filtered = np.array(T)[filtered_indices]
-        Y_filtered = np.array(Y)[filtered_indices]
-        true_positives = sum((T_filtered == 1) & (Y_filtered == 1))
-        precision_filtered = precision_score(T_filtered, Y_filtered, zero_division=0)
-        print(f"Uncertainty Cutoff {cutoff}: Precision - {precision_filtered}, True Positives - {true_positives}")
 
 # ------------------- Data Loading -------------------
 

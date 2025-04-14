@@ -6,7 +6,8 @@ from utils import (
     set_random_seed,
     get_computation_device,
     initialize_scheduler,
-    train_and_validate_model
+    train_and_validate_model,
+    evaluate
 )
 
 def main():
@@ -42,6 +43,7 @@ def main():
     # --- Training and Validation ---
     # Perform training and validation
     train_and_validate_model(config, trainer, tester, scheduler, model, device)
+    evaluate(config, tester) ### NOTE we added this
 
 # Execute the main function when the script is run
 if __name__ == "__main__":
