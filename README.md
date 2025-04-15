@@ -41,7 +41,7 @@ python -m main
 NA for bug or not calculated in runs yet
 
 | Version / changes | Time / GH200 ↓ | Val AUC ↑ | Val Loss ↓ | Test AUC ↑ | Test Loss ↓ | Link |
-|-|-|-|-|-|
+|-|-|-|-|-|-|-|
 | Reported results | NA | 0.666 |  | 0.70 |  |[paper](https://academic.oup.com/bib/article/25/5/bbae359/7720609#476124851) |
 | Original tuna 1 | 7184s | 0.6605 | NA | NA | NA | [log](original_tuna/results/bernett/TUnA/base_tuna_4_12_25.txt) |
 | Original tuna 2 | 7184s | 0.6605 | NA | NA | NA | [log](original_tuna/results/bernett/TUnA/base_tuna_4_12_25.txt) |
