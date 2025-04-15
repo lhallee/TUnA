@@ -42,9 +42,9 @@ NA for bug or not calculated in runs yet
 
 | Version / changes | Time / GH200 ↓ | Val AUC ↑ | Val Loss ↓ | Test AUC ↑ | Test Loss ↓ | Link |
 |-|-|-|-|-|-|-|
-| Reported results | NA | 0.666 |  | 0.70 |  |[paper](https://academic.oup.com/bib/article/25/5/bbae359/7720609#476124851) |
-| Original tuna 1 | 7184s | 0.6605 | NA | NA | NA | [log](original_tuna/results/bernett/TUnA/base_tuna_4_12_25.txt) |
-| Original tuna 2 | 7184s | 0.6605 | NA | NA | NA | [log](original_tuna/results/bernett/TUnA/base_tuna_4_12_25.txt) |
+| Reported results | NA | 0.666 | NA | 0.70 | NA |[paper](https://academic.oup.com/bib/article/25/5/bbae359/7720609#476124851) |
+| Original tuna 1 | 7184s | 0.6605 | NA | NA | NA | [log](original_tuna/results/bernett/TUnA/original_tuna_1.txt) |
+| Original tuna 2 | 7416s | 0.6605 | NA | NA | NA | [log](original_tuna/results/bernett/TUnA/original_tuna_2.txt) |
 | Synthyra version of ESM2-150, improved torch Dataset | 2271s | 0.6754 | NA | NA | NA | [log](runs/1/switch_to_synthyra_4_13_25.txt) |
 | Flash attn | 2139s | 0.6613 | NA | NA | NA |[log](runs/2/flash_attn_4_13_25.txt) |
 | Fixed mask, rotary, swiglu, ESM2-650, batching during eval | 868s | 0.6854 | 0.6392 | 0.6978 | 0.6323 |[log](runs/3/650_4_14_25.txt) |

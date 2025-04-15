@@ -30,11 +30,11 @@ for intra in DATASETS:
 """Please change the cuda device to the device that you are using"""
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model, alphabet = load_model_and_alphabet(device)
-datasets = ['Intra0_dictionary_1500_or_less','Intra1_dictionary_1500_or_less','Intra2_dictionary_1500_or_less']
+datasets = ['Intra0_dictionary_1500_or_less','Intra1_dictionary_1500_or_less','Intra2_dictionary']
 for dataset in datasets:
     data_file = os.path.join(TARGET_DIR, f"{dataset}.tsv")
     with open(data_file, "r") as f:
         data_list = f.read().strip().split('\n')
     dir_input = os.path.join('data/embedded/bernett/', dataset)
     os.makedirs(dir_input, exist_ok=True)
-    process_data_points(model, alphabet, data_list, dir_input, device=device)
+    process_data_points(model, alphabet, data_list, dir_input, device=device, max_length=MAX_LENGTH)

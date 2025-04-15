@@ -1,3 +1,5 @@
+import torch
+import os
 from model import (IntraEncoder, InterEncoder, ProteinInteractionNet, Tester)
 from uncertaintyAwareDeepLearn import VanillaRFFLayer
 from utils import (
@@ -6,14 +8,27 @@ from utils import (
     get_computation_device,
     evaluate
 )
-import torch
+from huggingface_hub import hf_hub_download
+
+
+HF_PATH = 'https://huggingface.co/datasets/yk0/TUnA_models/tree/main/bernett/TUnA'
+
 
 def main():
     # --- Pre-Training Setup ---
     # Load configs. Use config file to change hyperparameters.
     config = load_configuration("config.yaml")
     
+    # Download the model from HuggingFace
+    model_path = config['directories']['model_output']
+    os.makedirs(os.path.dirname(model_path), exist_ok=True)
     
+    # Download the model file from HuggingFace
+    hf_hub_download(repo_id="yk0/TUnA_models", 
+                    filename="bernett/TUnA/model", 
+                    local_dir=os.path.dirname(model_path),
+                    repo_type="dataset",
+                    local_dir_use_symlinks=False)
 
     # Set random seed for reproducibility
     set_random_seed(config['other']['random_seed'])

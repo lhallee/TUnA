@@ -2,6 +2,7 @@ import torch
 import os
 import esm
 
+
 def load_model_and_alphabet(device):
     """Load the ESM model and alphabet."""
     model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
@@ -19,11 +20,11 @@ def get_protein_embeddings(model, alphabet, sequence, device):
         # Remove start and end tokens
         return results["representations"][30][0, 1:-1, :].to('cpu')
 
-def process_data_points(model, alphabet, data_list, dir_input, device):
+def process_data_points(model, alphabet, data_list, dir_input, device, max_length=1500):
     """Process a list of data points and save protein embeddings."""
     protein_dictionary = {}
     for no, data in enumerate(data_list, 1):
         print(f"{no}/{len(data_list)}", flush=True)
         uniprot_id, sequence = data.strip().split("\t")
-        protein_dictionary[uniprot_id] = get_protein_embeddings(model, alphabet, sequence, device)
+        protein_dictionary[uniprot_id] = get_protein_embeddings(model, alphabet, sequence[:max_length], device)
     torch.save(protein_dictionary, os.path.join(dir_input, 'protein_dictionary.pt'))
