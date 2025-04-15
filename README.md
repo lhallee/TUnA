@@ -38,15 +38,19 @@ python -m main
 ```
 
 ### Change log
-| Version / changes | Time / GH200 | Val AUC | Test AUC | Link |
+NA for bug or not calculated in runs yet
+
+| Version / changes | Time / GH200 ↓ | Val AUC ↑ | Val Loss ↓ | Test AUC ↑ | Test Loss ↓ | Link |
 |-|-|-|-|-|
-| Reported results | NA | 0.666 | 0.70 | [paper](https://academic.oup.com/bib/article/25/5/bbae359/7720609#476124851) |
-| Run base TUnA | 7184s | 0.6604 | NA | [log](original_tuna/results/bernett/TUnA/base_tuna_4_12_25.txt) |
-| Synthyra version of ESM2-150, improved torch Dataset | 2271s | 0.6754 | NA | [log](runs/1/switch_to_synthyra_4_13_25.txt) |
-| Flash attn | 2139s | 0.6613 | NA | [log](runs/2/flash_attn_4_13_25.txt) |
-| Fixed mask, rotary, swiglu, ESM2-650, batching during eval | 868s | 0.6854 | 0.6978 | [log](runs/3/650_4_14_25.txt) |
-| bias=False, attention pooling, data collator update| 1225s | 0.6462 | 0.6358 | [log](runs/4/attention_pool_4_14_25.txt) |
-| bias=False, back to max pool | 1177s | 0.6859 | 0.6930 | [log](runs/5/bias_false_4_14_25.txt) |
+| Reported results | NA | 0.666 |  | 0.70 |  |[paper](https://academic.oup.com/bib/article/25/5/bbae359/7720609#476124851) |
+| Original tuna 1 | 7184s | 0.6605 | NA | NA | NA | [log](original_tuna/results/bernett/TUnA/base_tuna_4_12_25.txt) |
+| Original tuna 2 | 7184s | 0.6605 | NA | NA | NA | [log](original_tuna/results/bernett/TUnA/base_tuna_4_12_25.txt) |
+| Synthyra version of ESM2-150, improved torch Dataset | 2271s | 0.6754 | NA | NA | NA | [log](runs/1/switch_to_synthyra_4_13_25.txt) |
+| Flash attn | 2139s | 0.6613 | NA | NA | NA |[log](runs/2/flash_attn_4_13_25.txt) |
+| Fixed mask, rotary, swiglu, ESM2-650, batching during eval | 868s | 0.6854 | 0.6392 | 0.6978 | 0.6323 |[log](runs/3/650_4_14_25.txt) |
+| bias=False, attention pooling, data collator update| 1225s | 0.6462 | 0.6635 | 0.6358 | NA | [log](runs/4/attention_pool_4_14_25.txt) |
+| bias=False, back to max pool | 1177s | 0.6859 | 0.6376 | 0.6930 | NA |[log](runs/5/bias_false_4_14_25.txt) |
+| ESM++ large, max length 2048| 34738s | 0.6700 | 0.6526 | NA | 0.6270 |[log](runs/6/2048_4_14_25.txt) |
 
 
 ### Notes
