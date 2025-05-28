@@ -98,21 +98,21 @@ def get_data(config, device):
     max_length = config['model']['max_sequence_length']
     batch_size = config['training']['batch_size']
     data = load_dataset('Synthyra/bernett_gold_ppi')
-    train_data = data['train'].filter(lambda x: len(x['SeqA']) <= max_length and len(x['SeqB']) <= max_length)
-    valid_data = data['valid'].filter(lambda x: len(x['SeqA']) <= max_length and len(x['SeqB']) <= max_length)
+    train_data = data['train']
+    valid_data = data['valid']
     test_data = data['test']
 
     all_seqs = list(set(
         train_data['SeqA'] + train_data['SeqB'] + valid_data['SeqA'] + valid_data['SeqB'] + test_data['SeqA'] + test_data['SeqB']
     ))
 
-    esm150 = AutoModel.from_pretrained('Synthyra/ESMplusplus_large', trust_remote_code=True).to(device).eval()
+    plm = AutoModel.from_pretrained('Synthyra/ESMplusplus_large', trust_remote_code=True).to(device).eval()
     # this is a dict of seq:embedding
-    embedding_dict = esm150.embed_dataset(
+    embedding_dict = plm.embed_dataset(
         sequences=all_seqs,
-        tokenizer=esm150.tokenizer,
+        tokenizer=plm.tokenizer,
         batch_size=batch_size,
-        max_len=100000, # prevent truncation
+        max_len=2048,
         full_embeddings=True,
         embed_dtype=torch.float32,
         num_workers=0,
@@ -121,9 +121,17 @@ def get_data(config, device):
         save=True,
         save_path='embeddings.pth',
     )
+
+    preview=True
+
+    for key, value in embedding_dict.items():
+        if preview:
+            print(value.shape)
+            preview=False
+        embedding_dict[key] = value[:, :max_length, :]
     
-    esm150.cpu()
-    del esm150
+    plm.cpu()
+    del plm
     torch.cuda.empty_cache()
 
     return embedding_dict, train_data, valid_data, test_data
