@@ -7,23 +7,23 @@ from typing import Optional
 from functools import partial
 from utils import *
 from optimizer import Lookahead
-from attention import SelfAttention, AttentionPooler
+from attention import SelfAttention
 
 
 Linear = partial(nn.Linear, bias=False)
 
 
 class Feedforward(nn.Module):
-    def __init__(self, hidden_size, intermediate_size, dropout, activation_fn):
+    def __init__(self, hidden_size, intermediate_size, dropout, use_spectral_norm=True):
         super().__init__()
 
         self.hidden_size = hidden_size
         self.intermediate_size = intermediate_size
 
         # SwiGLU implementation requires two projection matrices
-        self.w1 = spectral_norm(Linear(hidden_size, intermediate_size))
-        self.w2 = spectral_norm(Linear(hidden_size, intermediate_size))
-        self.down = spectral_norm(Linear(intermediate_size, hidden_size))
+        self.w1 = spectral_norm(Linear(hidden_size, intermediate_size)) if use_spectral_norm else Linear(hidden_size, intermediate_size)
+        self.w2 = spectral_norm(Linear(hidden_size, intermediate_size)) if use_spectral_norm else Linear(hidden_size, intermediate_size)
+        self.down = spectral_norm(Linear(intermediate_size, hidden_size)) if use_spectral_norm else Linear(intermediate_size, hidden_size)
 
         self.dropout = nn.Dropout(dropout)
         self.act = nn.SiLU()
@@ -38,15 +38,15 @@ class Feedforward(nn.Module):
 
 
 class EncoderLayer(nn.Module):
-    def __init__(self, hidden_size, n_heads, intermediate_size, dropout, activation_fn):
+    def __init__(self, hidden_size, n_heads, intermediate_size, dropout, use_spectral_norm=True):
         super().__init__()
         self.ln1 = nn.LayerNorm(hidden_size)
         self.ln2 = nn.LayerNorm(hidden_size)
         
         self.dropout = nn.Dropout(dropout)
         
-        self.attn = SelfAttention(hidden_size, n_heads, dropout)
-        self.mlp = Feedforward(hidden_size, intermediate_size, dropout, activation_fn)
+        self.attn = SelfAttention(hidden_size, n_heads, dropout, use_spectral_norm)
+        self.mlp = Feedforward(hidden_size, intermediate_size, dropout, use_spectral_norm)
         
     def forward(self, x: torch.Tensor, attention_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         x = self.ln1(x + self.dropout(self.attn(x, attention_mask)))
@@ -55,13 +55,13 @@ class EncoderLayer(nn.Module):
 
 
 class IntraEncoder(nn.Module):
-    def __init__(self, prot_dim, hidden_size, n_layers, n_heads, intermediate_size, dropout, activation_fn):
+    def __init__(self, prot_dim, hidden_size, n_layers, n_heads, intermediate_size, dropout, use_spectral_norm=True):
         super().__init__()   
-        self.input_proj = spectral_norm(Linear(prot_dim, hidden_size))
+        self.input_proj = spectral_norm(Linear(prot_dim, hidden_size)) if use_spectral_norm else Linear(prot_dim, hidden_size)
         self.n_layers = n_layers
         self.layer = nn.ModuleList()
         for _ in range(n_layers):
-            self.layer.append(EncoderLayer(hidden_size, n_heads, intermediate_size, dropout, activation_fn))
+            self.layer.append(EncoderLayer(hidden_size, n_heads, intermediate_size, dropout, use_spectral_norm))
         
     def forward(self, x: torch.Tensor, attention_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         # x = [batch_size, max_seq_len, protA_dim]
@@ -73,7 +73,7 @@ class IntraEncoder(nn.Module):
 
 
 class InterEncoder(nn.Module):
-    def __init__(self, prot_dim, hidden_size, n_layers, n_heads, intermediate_size, dropout, activation_fn):
+    def __init__(self, prot_dim, hidden_size, n_layers, n_heads, intermediate_size, dropout, use_spectral_norm=True):
         super().__init__()
         self.output_dim = prot_dim
         self.hidden_size = hidden_size
@@ -83,7 +83,7 @@ class InterEncoder(nn.Module):
         self.dropout = dropout
         self.layer = nn.ModuleList()
         for _ in range(n_layers):
-            self.layer.append(EncoderLayer(hidden_size, n_heads, intermediate_size, dropout, activation_fn))
+            self.layer.append(EncoderLayer(hidden_size, n_heads, intermediate_size, dropout, use_spectral_norm))
 
     def forward(self, enc_protA: torch.Tensor, enc_protB: torch.Tensor, combined_mask: torch.Tensor) -> torch.Tensor:
         # Concatenate the encoded representations and masks
@@ -103,12 +103,7 @@ class ProteinInteractionNet(nn.Module):
         self.intra_encoder = intra_encoder
         self.inter_encoder = inter_encoder
         hidden_size = self.inter_encoder.hidden_size
-        self.pooler = AttentionPooler(
-            hidden_size=hidden_size,
-            n_tokens=1,
-            n_heads=self.inter_encoder.n_heads,
-            use_spectral_norm=use_spectral_norm
-        )
+
         self.final_proj = spectral_norm(Linear(hidden_size * 2, hidden_size)) if use_spectral_norm else Linear(hidden_size * 2, hidden_size)
         self.device = device
         self.gp_layer = gp_layer
@@ -190,7 +185,12 @@ class Trainer(object):
         """ Setup RAdam + Lookahead optimizer with separate weight decay for biases and weights. """
         weight_p, bias_p = self._separate_weights_and_biases()
         self.optimizer_inner = Adam(
-            [{'params': weight_p, 'weight_decay': weight_decay}, {'params': bias_p, 'weight_decay': 0}], lr=lr)
+            [
+                {'params': weight_p, 'weight_decay': weight_decay},
+                {'params': bias_p, 'weight_decay': 0}
+            ],
+                lr=lr
+        )
         self.optimizer = Lookahead(self.optimizer_inner, alpha=0.8, k=5)
 
     def _separate_weights_and_biases(self):

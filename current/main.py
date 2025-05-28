@@ -44,7 +44,7 @@ def main():
         model_config['n_heads'],
         model_config['intermediate_size'],
         model_config['dropout'],
-        model_config['activation_function'],
+        model_config['use_spectral_norm'],
     )
     
     inter_encoder = InterEncoder(
@@ -54,7 +54,7 @@ def main():
         model_config['n_heads'],
         model_config['intermediate_size'],
         model_config['dropout'],
-        model_config['activation_function'],
+        model_config['use_spectral_norm'],
     )
 
     gp_layer = VanillaRFFLayer(

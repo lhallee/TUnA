@@ -7,7 +7,7 @@ model:
   intermediate_size: 256
   dropout: 0.2
   max_sequence_length: 512  # Maximum sequence length for input data
-  activation_function: "swish" # Options ["relu", "gelu", "swish", "elu", "leaky_relu", "mish"]
+  use_spectral_norm: True
   gp_layer:
     rffs: 4096
     out_targets: 1

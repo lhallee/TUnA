@@ -128,7 +128,7 @@ def get_data(config, device):
         if preview:
             print(value.shape)
             preview=False
-        embedding_dict[key] = value[:, :max_length, :]
+        embedding_dict[key] = value[:max_length, :]
     
     plm.cpu()
     del plm
