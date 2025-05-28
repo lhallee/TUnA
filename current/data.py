@@ -96,11 +96,12 @@ class PPICollator:
 def get_data(config, device):
     # Get uniprot id:protein embedding dictionary via torch.load
     max_length = config['model']['max_sequence_length']
+    model_max_length = 2048
     batch_size = config['training']['batch_size']
     data = load_dataset('Synthyra/bernett_gold_ppi')
-    train_data = data['train']
-    valid_data = data['valid']
-    test_data = data['test']
+    train_data = data['train'].map(lambda x: {'SeqA': x['SeqA'][:model_max_length], 'SeqB': x['SeqB'][:model_max_length], 'labels': x['labels']})
+    valid_data = data['valid'].map(lambda x: {'SeqA': x['SeqA'][:model_max_length], 'SeqB': x['SeqB'][:model_max_length], 'labels': x['labels']})
+    test_data = data['test'].map(lambda x: {'SeqA': x['SeqA'][:model_max_length], 'SeqB': x['SeqB'][:model_max_length], 'labels': x['labels']})
 
     all_seqs = list(set(
         train_data['SeqA'] + train_data['SeqB'] + valid_data['SeqA'] + valid_data['SeqB'] + test_data['SeqA'] + test_data['SeqB']
@@ -112,7 +113,7 @@ def get_data(config, device):
         sequences=all_seqs,
         tokenizer=plm.tokenizer,
         batch_size=batch_size,
-        max_len=2048,
+        max_len=10000, # prevent truncation
         full_embeddings=True,
         embed_dtype=torch.float32,
         num_workers=0,

@@ -51,7 +51,7 @@ NA for bug or not calculated in runs yet
 | bias=False, attention pooling, data collator update| 1225s | 0.6462 | 0.6635 | 0.6358 | NA | [log](runs/4/attention_pool_4_14_25.txt) |
 | bias=False, back to max pool | 1177s | 0.6859 | 0.6376 | 0.6930 | NA |[log](runs/5/bias_false_4_14_25.txt) |
 | ESM++ large, max length 2048| 34738s | 0.6700 | 0.6526 | NA | 0.6270 |[log](runs/6/2048_4_14_25.txt) |
-
+| ESM++ large, embedded to | 34738s | 0.6700 | 0.6526 | NA | 0.6270 |[log](runs/6/2048_4_14_25.txt) |
 
 ### Notes
 - Attention pooling looks to be worse and slower
