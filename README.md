@@ -18,6 +18,7 @@ There seems to be some low hanging fruit in terms of improvements, but who knows
 ```
 git clone https://github.com/lhallee/TUnA.git
 cd TUnA
+git submodule update --init --remote --recursive
 chmod +x setup_bioenv.sh
 ./setup_bioenv.sh
 source ~/bioenv/bin/activate
@@ -33,7 +34,6 @@ python -m main
 
 ## To run the current version
 ```
-cd current
 python -m main
 ```
 
