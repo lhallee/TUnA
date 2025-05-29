@@ -190,20 +190,20 @@ def evaluate(config, tester, device, batch_size=1, bugfix=False):
         print(result)
     
     # Calculate Expected Calibration Error
-    ece = cal.get_ece(S, T)
+    ece = cal.get_ece(probs, y_true)
     ece_result = f"Expected Calibration Error (ECE): {ece}"
     print(ece_result)
     test_results.append(ece_result)
     
     # Calculate uncertainty
-    uncertainty = (1 - np.array(S)) * (np.array(S)) / 0.25
+    uncertainty = (1 - probs) * (probs) / 0.25
 
     for cutoff in [0.2, 0.4, 0.6, 0.8]:
         filtered_indices = uncertainty < cutoff
-        T_filtered = np.array(T)[filtered_indices]
-        Y_filtered = np.array(Y)[filtered_indices]
-        true_positives = sum((T_filtered == 1) & (Y_filtered == 1))
-        precision_filtered = precision_score(T_filtered, Y_filtered, zero_division=0)
+        y_true_filtered = y_true[filtered_indices]
+        y_pred_filtered = y_pred[filtered_indices]
+        true_positives = sum((y_true_filtered == 1) & (y_pred_filtered == 1))
+        precision_filtered = precision_score(y_true_filtered, y_pred_filtered, zero_division=0)
         cutoff_result = f"Uncertainty Cutoff {cutoff}: Precision - {precision_filtered}, True Positives - {true_positives}"
         print(cutoff_result)
         test_results.append(cutoff_result)
@@ -217,14 +217,15 @@ def evaluate(config, tester, device, batch_size=1, bugfix=False):
     # test_data has columns A, B, SeqA, SeqB, labels
     test_interactions = test_data.to_pandas()
     # Add S and uncertainty columns to test_interactions DataFrame
-    test_interactions['S'] = S
+    test_interactions['probs'] = probs.tolist()
+    test_interactions['labels'] = y_true.tolist()
     test_interactions['uncertainty'] = uncertainty
 
     # Saving to TSV
     test_interactions.to_csv('evaluation_results.tsv', sep='\t', index=False)
 
     # when pauc has saving
-    plot_roc_with_ci(y_true, probs, save_path='output/roc_curve.png')
+    plot_roc_with_ci(y_true, probs.unsqueeze(-1), save_path='output/roc_curve.png')
 
 
 # Save model state to file
