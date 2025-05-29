@@ -154,7 +154,7 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
 def evaluate(config, tester, device, batch_size=1, bugfix=False):
     embedding_dict, _, _, test_data = get_data(config, device)
     if bugfix:
-        test_data = test_data.select(range(1000))
+        test_data = test_data.shuffle().select(range(1000))
 
     # correct labels, predictions, raw scores
     T, Y, S, total_loss_test, total_test_size = test_epoch(
