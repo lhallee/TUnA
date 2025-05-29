@@ -170,17 +170,16 @@ def evaluate(config, tester, device, batch_size=1, bugfix=False):
     print(T[0])
     print(Y[0])
     print(S[0])
-    T, S = np.array(Y).astype(int), np.array(S).astype(float)
-    AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc = calculate_metrics(T, Y, S)
+    y_true = np.array(T).astype(int)
+    y_pred = np.array(Y).astype(float)
+    probs = np.array(S).astype(float)
+    accuracy, recall, precision, f1, mcc = calculate_metrics(T, Y, S)
     
     # Print and write results to file
     test_results = [
         f'Test loss: {total_loss_test / total_test_size}',
-        f'Test AUC: {AUC_dev}',
-        f'Test PRC: {PRC_dev}',
         f'Test accuracy: {accuracy}',
-        f'Test sensitivity: {sensitivity}',
-        f'Test specificity: {specificity}',
+        f'Test recall: {recall}',
         f'Test precision: {precision}',
         f'Test F1: {f1}',
         f'Test MCC: {mcc}'
@@ -225,7 +224,7 @@ def evaluate(config, tester, device, batch_size=1, bugfix=False):
     test_interactions.to_csv('evaluation_results.tsv', sep='\t', index=False)
 
     # when pauc has saving
-    plot_roc_with_ci(Y, S, save_path='output/roc_curve.png')
+    plot_roc_with_ci(y_true, probs, save_path='output/roc_curve.png')
 
 
 # Save model state to file
