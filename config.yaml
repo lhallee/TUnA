@@ -1,12 +1,12 @@
 # Model Architecture
 model:
-  base_size: 1152 # ESM2 embedding dimensions
-  hidden_size: 64
+  base_size: 1280 # ESM2 embedding dimensions
+  hidden_size: 128
   n_layers: 1 # Number of encoder and decoder layers
   n_heads: 8 # Number of attention heads
-  intermediate_size: 256
+  intermediate_size: 512
   dropout: 0.2
-  max_sequence_length: 512  # Maximum sequence length for input data
+  max_sequence_length: 1024  # Maximum sequence length for input data
   use_spectral_norm: True
   gp_layer:
     rffs: 4096
@@ -20,7 +20,7 @@ training:
   batch_size: 16
   learning_rate: 0.0001
   weight_decay: 0.00001
-  iteration: 14
+  iteration: 15
  
 optimizer:
   step_size: 2

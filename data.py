@@ -124,7 +124,6 @@ def get_data(config, device):
     )
 
     preview=True
-
     for key, value in embedding_dict.items():
         if preview:
             print(value.shape)

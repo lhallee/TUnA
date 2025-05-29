@@ -115,40 +115,30 @@ def test_epoch(dataset, emb_dict, tester, config, device, last_epoch, batch_size
 
 # Train and validate the model across multiple epochs
 def train_and_validate_model(config, trainer, tester, scheduler, model, device):
-    max_AUC_dev = 0
-    batch_size = config['training']['batch_size']
-    embedding_dict, train_data, valid_data, _ = get_data(config, device)
+    best_val_loss = float('inf')
+    best_model_path = "output/best_model.pt"
+    num_epochs = config['training']['epochs']
 
-    start = timeit.default_timer()
-    for epoch in range(1, config['training']['iteration'] + 1):
-        if epoch != (config['training']['iteration']):
-            total_loss_train, total_train_size = train_epoch(train_data, embedding_dict, trainer, config, device, last_epoch=False)
-            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, device, last_epoch=False, batch_size=batch_size)
-            
-            end = timeit.default_timer()
-            time = end - start
+    for epoch in range(num_epochs):
+        total_loss_train, total_train_size = train_epoch(
+            get_data(config, device)[1], get_data(config, device)[0], trainer, config, device, last_epoch=False
+        )
+        T, Y, S, total_loss_test, total_test_size = test_epoch(
+            get_data(config, device)[2], get_data(config, device)[0], tester, config, device, last_epoch=False
+        )
+        val_loss = total_loss_test / total_test_size
 
-            AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc = calculate_metrics(T,Y,S)
-            
-            if AUC_dev > max_AUC_dev:
-                save_model(model, "output/model")
-                max_AUC_dev = AUC_dev
-            
-            log_and_save_metrics(epoch, time, total_loss_train, total_train_size, total_loss_test, total_test_size, AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc, max_AUC_dev)
-            scheduler.step()
-            plot(config['directories']['metrics_output'])
-        
-        if epoch == (config['training']['iteration']):
-            total_loss_train, total_train_size = train_epoch(train_data, embedding_dict, trainer, config, device, last_epoch=True)
-            
-            T, Y, S, total_loss_test, total_test_size = test_epoch(valid_data, embedding_dict, tester, config, device, last_epoch=True, batch_size=batch_size)
-            AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc = calculate_metrics(T,Y,S)
-            
-            end = timeit.default_timer()
-            time = end - start
-            log_and_save_metrics(epoch, time, total_loss_train, total_train_size, total_loss_test, total_test_size, AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc, max_AUC_dev)
-            plot(config['directories']['metrics_output'])
-            save_model(model, "output/model")
+        # Save best model
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            torch.save(model.state_dict(), best_model_path)
+
+        scheduler.step()
+        log_and_save_metrics(epoch, timeit.default_timer(), total_loss_train, total_train_size, total_loss_test, total_test_size, *calculate_metrics(T, Y, S), best_val_loss)
+        plot(config['directories']['metrics_output'])
+
+    # Load best model weights before final evaluation
+    model.load_state_dict(torch.load(best_model_path))
 
 
 def evaluate(config, tester, device, batch_size=1, bugfix=False):
