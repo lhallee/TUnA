@@ -156,6 +156,7 @@ def evaluate(config, tester, device, batch_size=1, bugfix=False):
     if bugfix:
         test_data = test_data.select(range(1000))
 
+    # correct labels, predictions, raw scores
     T, Y, S, total_loss_test, total_test_size = test_epoch(
         test_data,
         embedding_dict,
@@ -165,7 +166,7 @@ def evaluate(config, tester, device, batch_size=1, bugfix=False):
         last_epoch=True,
         batch_size=batch_size
     )
-    print(T.shape, Y.shape, S.shape)
+    print(len(T), len(Y), len(S))
     print(T[0])
     print(Y[0])
     print(S[0])
