@@ -167,11 +167,12 @@ def evaluate(config, tester, device, batch_size=1, bugfix=False):
         batch_size=batch_size
     )
     print(len(T), len(Y), len(S))
-    print(T[0])
-    print(Y[0])
-    print(S[0])
+    for i, (t, y, s) in enumerate(zip(T, Y, S)):
+        print(f"Label: {t}, Predicted: {y}, Score: {s:.4f}")
+        if i > 100:
+            break
     y_true = np.array(T).astype(int)
-    y_pred = np.array(Y).astype(float)
+    y_pred = np.array(Y).astype(int)
     probs = np.array(S).astype(float)
     accuracy, recall, precision, f1, mcc = calculate_metrics(T, Y)
     
@@ -225,7 +226,6 @@ def evaluate(config, tester, device, batch_size=1, bugfix=False):
     test_interactions.to_csv('evaluation_results.tsv', sep='\t', index=False)
 
     # when pauc has saving
-    #probs = probs[:, np.newaxis]
     print(y_true.shape, probs.shape)
     plot_roc_with_ci(y_true, probs, save_path='output/roc_curve.png')
 
