@@ -6,13 +6,14 @@ import yaml
 import numpy as np
 import timeit
 import os
-from pauc import plot_roc_with_ci
 from sklearn.metrics import precision_score
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+
 from data import PPIDataset, PPICollator, get_data
 from metrics import calculate_metrics
 from plots import plot
+from pauc.pauc import plot_roc_with_ci
 
 
 # ------------------- Initialization and Configuration -------------------
@@ -153,7 +154,19 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
 def evaluate(config, tester, device, batch_size=1):
     embedding_dict, _, _, test_data = get_data(config, device)
 
-    T, Y, S, total_loss_test, total_test_size = test_epoch(test_data, embedding_dict, tester, config, device, last_epoch=True, batch_size=batch_size)
+    T, Y, S, total_loss_test, total_test_size = test_epoch(
+        test_data,
+        embedding_dict,
+        tester,
+        config,
+        device,
+        last_epoch=True,
+        batch_size=batch_size
+    )
+    print(T.shape, Y.shape, S.shape)
+    print(T[0])
+    print(Y[0])
+    print(S[0])
     T, S = np.array(Y).astype(int), np.array(S).astype(float)
     AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc = calculate_metrics(T, Y, S)
     

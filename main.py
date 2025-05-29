@@ -77,6 +77,7 @@ def main():
     
     # --- Training and Validation ---
     # Perform training and validation
+    evaluate(config, tester, device)  # Initial evaluation before training for random performance
     train_and_validate_model(config, trainer, tester, scheduler, model, device)
     evaluate(config, tester, device)
 

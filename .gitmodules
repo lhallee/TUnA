@@ -1,0 +1,3 @@
+[submodule "pauc"]
+	path = pauc
+	url = https://github.com/srijitseal/pauc.git

@@ -19,7 +19,6 @@ matplotlib
 peft
 seaborn
 matplotlib
-pauc
 uncertainty-calibration
 fair-esm==2.0.0
 PyYAML
