@@ -154,7 +154,8 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
 def evaluate(config, tester, device, batch_size=1, bugfix=False):
     embedding_dict, _, _, test_data = get_data(config, device)
     if bugfix:
-        test_data = test_data.shuffle().select(range(1000))
+        print("Testing evaluation to doublecheck metric calculation")
+        test_data = test_data.shuffle().select(range(100))
 
     # correct labels, predictions, raw scores
     T, Y, S, total_loss_test, total_test_size = test_epoch(
@@ -166,15 +167,12 @@ def evaluate(config, tester, device, batch_size=1, bugfix=False):
         last_epoch=True,
         batch_size=batch_size
     )
-    print(len(T), len(Y), len(S))
-    for i, (t, y, s) in enumerate(zip(T, Y, S)):
-        print(f"Label: {t}, Predicted: {y}, Score: {s:.4f}")
-        if i > 100:
-            break
+
     y_true = np.array(T).astype(int)
     y_pred = np.array(Y).astype(int)
     probs = np.array(S).astype(float)
-    accuracy, recall, precision, f1, mcc = calculate_metrics(T, Y)
+
+    accuracy, recall, precision, f1, mcc, auc = calculate_metrics(T, Y)
     
     # Print and write results to file
     test_results = [
@@ -183,7 +181,8 @@ def evaluate(config, tester, device, batch_size=1, bugfix=False):
         f'Test recall: {recall}',
         f'Test precision: {precision}',
         f'Test F1: {f1}',
-        f'Test MCC: {mcc}'
+        f'Test MCC: {mcc}',
+        f'Test AUC: {auc}'
     ]
     
     # Print results
