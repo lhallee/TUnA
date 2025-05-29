@@ -1,6 +1,6 @@
 # Model Architecture
 model:
-  base_size: 1280 # ESM2 embedding dimensions
+  base_size: 1152 # ESM2 embedding dimensions
   hidden_size: 128
   n_layers: 1 # Number of encoder and decoder layers
   n_heads: 8 # Number of attention heads
