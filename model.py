@@ -222,8 +222,8 @@ class Tester(object):
         self.model.eval()
         with torch.no_grad():
             loss, correct_labels, adjusted_score = self.model(**batch, last_epoch=last_epoch, train=False)
-            T = correct_labels
-            Y = np.round(adjusted_score.flatten().cpu().numpy())
-            S = adjusted_score.flatten().cpu().numpy()
+            y_true = correct_labels
+            y_pred = np.round(adjusted_score.flatten().cpu().numpy())
+            probs = adjusted_score.flatten().cpu().numpy()
             
-            return loss.item(), T, Y, S
+            return loss.item(), y_true, y_pred, probs

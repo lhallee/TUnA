@@ -20,12 +20,12 @@ from pauc.pauc import plot_roc_with_ci
 # Set up logging to a specific file
 def initialize_logging(log_file):
     logging.basicConfig(filename=log_file, filemode='w', level=logging.INFO, format='%(message)s')
-    logging.info("Epoch Time              Train Loss          Test Loss           AUC                 PRC                 Accuracy            Sensitivity         Specificity         Precision           F1                  MCC                 Max AUC")
+    logging.info("Epoch Time              Train Loss          Test Loss           Accuracy            Recall              Precision           F1                  MCC                 AUC                 Max AUC")
 
 
 # Log and save metrics
-def log_and_save_metrics(epoch, time, total_loss_train, total_train_size, total_loss_test, total_test_size, AUC_dev, PRC_dev, accuracy, sensitivity, specificity, precision, f1, mcc, max_AUC_dev):
-    metrics = [epoch, time, total_loss_train/total_train_size, total_loss_test/total_test_size, AUC_dev, PRC_dev,accuracy, sensitivity, specificity, precision, f1, mcc, max_AUC_dev]
+def log_and_save_metrics(epoch, time, total_loss_train, total_train_size, total_loss_test, total_test_size, accuracy, recall, precision, f1, mcc, auc, max_auc):
+    metrics = [epoch, time, total_loss_train/total_train_size, total_loss_test/total_test_size, accuracy, recall, precision, f1, mcc, auc, max_auc]
     logging.info('\t'.join(map(str, metrics)))
 
 
@@ -74,7 +74,7 @@ def train_epoch(dataset, emb_dict, trainer, config, device, last_epoch):
 
 # Test the model for one epoch
 def test_epoch(dataset, emb_dict, tester, config, device, last_epoch, batch_size=1):
-    T, Y, S = [], [], []
+    y_true, y_pred, probs = [], [], []
     total_loss = 0
     total_samples = 0
     max_seq_length = config['model']['max_sequence_length']
@@ -94,23 +94,23 @@ def test_epoch(dataset, emb_dict, tester, config, device, last_epoch, batch_size
         for batch in tqdm(dev_loader, desc="Testing", total=len(dev_loader)):
             batch = {key: value.to(device) for key, value in batch.items()}
             batch_loss, t, y, s = tester.test(batch, last_epoch)
-            T.extend(t)
-            Y.extend(y)
-            S.extend(s)
+            y_true.extend(t)
+            y_pred.extend(y)
+            probs.extend(s)
             total_loss += batch_loss * len(batch['x_a'])
             
-        return T, Y, S, total_loss, total_samples
+        return y_true, y_pred, probs, total_loss, total_samples
 
     else:
         for batch in tqdm(dev_loader, desc="Testing", total=len(dev_loader)):
             batch = {key: value.to(device) for key, value in batch.items()}
             batch_loss, t, y, s = tester.test(batch, last_epoch)
-            T.extend(t)
-            Y.extend(y)
-            S.extend(s)
+            y_true.extend(t)
+            y_pred.extend(y)
+            probs.extend(s)
             total_loss += batch_loss * len(batch['x_a'])
             
-        return T, Y, S, total_loss, total_samples
+        return y_true, y_pred, probs, total_loss, total_samples
 
 
 # Train and validate the model across multiple epochs
@@ -118,15 +118,23 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
     best_val_loss = float('inf')
     best_model_path = "output/best_model.pt"
     num_epochs = config['training']['epochs']
+    max_auc = 0.0
 
     for epoch in range(num_epochs):
         total_loss_train, total_train_size = train_epoch(
             get_data(config, device)[1], get_data(config, device)[0], trainer, config, device, last_epoch=False
         )
-        T, Y, S, total_loss_test, total_test_size = test_epoch(
+        y_true, y_pred, probs, total_loss_test, total_test_size = test_epoch(
             get_data(config, device)[2], get_data(config, device)[0], tester, config, device, last_epoch=False
         )
         val_loss = total_loss_test / total_test_size
+
+        # Calculate metrics for this epoch
+        accuracy, recall, precision, f1, mcc, auc = calculate_metrics(y_true, y_pred, probs)
+        
+        # Update max AUC
+        if auc > max_auc:
+            max_auc = auc
 
         # Save best model
         if val_loss < best_val_loss:
@@ -134,7 +142,13 @@ def train_and_validate_model(config, trainer, tester, scheduler, model, device):
             torch.save(model.state_dict(), best_model_path)
 
         scheduler.step()
-        log_and_save_metrics(epoch, timeit.default_timer(), total_loss_train, total_train_size, total_loss_test, total_test_size, *calculate_metrics(T, Y, S), best_val_loss)
+        log_and_save_metrics(
+            epoch,
+            timeit.default_timer(),
+            total_loss_train, total_train_size, total_loss_test, total_test_size,
+            accuracy, recall, precision, f1, mcc, auc,
+            max_auc
+        )
         plot(config['directories']['metrics_output'])
 
     # Load best model weights before final evaluation
@@ -148,7 +162,7 @@ def evaluate(config, tester, device, batch_size=1, bugfix=False):
         test_data = test_data.shuffle().select(range(100))
 
     # correct labels, predictions, raw scores
-    T, Y, S, total_loss_test, total_test_size = test_epoch(
+    y_true, y_pred, probs, total_loss_test, total_test_size = test_epoch(
         test_data,
         embedding_dict,
         tester,
@@ -158,9 +172,9 @@ def evaluate(config, tester, device, batch_size=1, bugfix=False):
         batch_size=batch_size
     )
 
-    y_true = np.array(T).astype(int)
-    y_pred = np.array(Y).astype(int)
-    probs = np.array(S).astype(float)
+    y_true = np.array(y_true).astype(int)
+    y_pred = np.array(y_pred).astype(int)
+    probs = np.array(probs).astype(float)
 
     accuracy, recall, precision, f1, mcc, auc = calculate_metrics(y_true, y_pred, probs)
     
