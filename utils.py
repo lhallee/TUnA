@@ -173,7 +173,7 @@ def evaluate(config, tester, device, batch_size=1, bugfix=False):
     y_true = np.array(T).astype(int)
     y_pred = np.array(Y).astype(float)
     probs = np.array(S).astype(float)
-    accuracy, recall, precision, f1, mcc = calculate_metrics(T, Y, S)
+    accuracy, recall, precision, f1, mcc = calculate_metrics(T, Y)
     
     # Print and write results to file
     test_results = [
